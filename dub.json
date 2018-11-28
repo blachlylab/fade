@@ -5,7 +5,7 @@
 	],
 	"description": "A minimal D application.",
 	"license": "proprietary",
-	"sourcePaths":["source","BioD/bio"],
+	"__sourcePaths":["source","BioD/bio"],
 	"buildRequirements":["allowWarnings"],
 	"dependencies": {
 		"undead": "~>1.0.9",
