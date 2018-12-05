@@ -31,7 +31,8 @@ unittest{
 	writeln(rc(seq));
 }
 
-struct ReadStatus{
+union ReadStatus{
+    ubyte raw;
     //ubyte read status encoding
     mixin(bitfields!(
         //0	Read is Softclipped
@@ -149,39 +150,42 @@ void align_clip(BamReader * bam,IndexedFastaFile * fai,Parasail * p,BamRead * re
         }
     }
 }
-
 void main(string[] args){
+    if(args[1]=="annotate"){
+        annotate(args[1..$]);
+    }else if(args[1]=="filter"){
+        filter(args[1..$]);
+    }
+}
+
+void annotate(string[] args){
 	auto bam = new BamReader(args[1]);
 	auto fai=IndexedFastaFile(args[2]);
-	auto sc_bam= new BamWriter("sc.bam");
-	sc_bam.writeSamHeader(bam.header());
-	sc_bam.writeReferenceSequenceInfo(bam.reference_sequences());
-	//auto db_bam=new BamWriter("db.bam");
-	//db_bam.writeSamHeader(bam.header());
-	//db_bam.writeReferenceSequenceInfo(bam.reference_sequences());
-	auto art_bam=new BamWriter("art.bam");
-	art_bam.writeSamHeader(bam.header());
-	art_bam.writeReferenceSequenceInfo(bam.reference_sequences());
-	//auto non_art_bam=new BamWriter("non_art.bam");
-	//non_art_bam.writeSamHeader(bam.header());
-	//non_art_bam.writeReferenceSequenceInfo(bam.reference_sequences());
-	auto out_bam=new BamWriter("out.bam");
+	auto out_bam=new BamWriter(args[3]);
 	out_bam.writeSamHeader(bam.header());
 	out_bam.writeReferenceSequenceInfo(bam.reference_sequences());
 	//string[2] strands=["+","-"];
 
 	//ubyte[string] reads;
-    ReadStatus[string] reads;
+    //ReadStatus[string] reads;
 
 	auto p=Parasail("ACTGN",1,-1,1,3);
-    auto allreads=bam.allReads.filter!(rec=>!(rec.is_supplementary()||rec.is_secondary_alignment()||rec.is_unmapped()||rec.cigar.filter!(x=>x.type=='S').count()==0));
-	foreach(BamRead rec;allreads){
+	foreach(BamRead rec;bam.allReads){
         ReadStatus status;
 		if(!rec.mate_is_unmapped()&&rec.mate_ref_name()!=rec.ref_name())
 			//read_class|=0b100_0000;
             status.mate_diff=true;
 		if(rec.mate_is_reverse_strand()==rec.is_reverse_strand()){
             status.same_strand=true;
+        }
+        if(rec.is_supplementary()||
+            rec.is_secondary_alignment()||
+            rec.is_unmapped()||
+            rec.cigar.filter!(x=>x.type=='S').count()==0
+        ){
+            rec["RS"]=status.raw;
+            out_bam.writeRecord(rec);
+            continue;
         }
 		//read_class|=0b10;
         status.sc=true;
@@ -203,7 +207,8 @@ void main(string[] args){
 					//read_class|=0b1000;
                     status.mate=false;
 					//read_class|=0b1_0000;
-					reads[rec.name]=status;
+                    rec["RS"]=status.raw;
+                    out_bam.writeRecord(rec);
 					continue;
 				}
 			}else if(sup[0]==rec.mate_ref_name()){
@@ -216,7 +221,8 @@ void main(string[] args){
 					//read_class|=0b1000;
                     status.mate=true;
 					//read_class|=0b10_0000;
-					reads[rec.name]=status;
+                    rec["RS"]=status.raw;
+                    out_bam.writeRecord(rec);
 					continue;
 				}
 			}else{
@@ -229,7 +235,8 @@ void main(string[] args){
                         status.mate=false;
                         status.far=true;
                         //read_class|=0b10_0000;
-                        reads[rec.name]=status;
+                        rec["RS"]=status.raw;
+                        out_bam.writeRecord(rec);
                         continue;
                     }
                 }
@@ -243,28 +250,54 @@ void main(string[] args){
 		if(clips[1].length()!=0){
             align_clip(&bam,&fai,&p,&rec,&status,clips[1].length(),false);
 		}
+        rec["RS"]=status.raw;
+        assert(rec["RS"].bam_typeid=='C');
 		//reads[rec.name]=read_class;
-        reads[rec.name]=status;
+        //if(status.art){
+        //    rec["RS"]=ReadSt.rawatus;
+        //}
+        out_bam.writeRecord(rec);
 	}
-	int read_count;
-	int clipped;
-	int sup;
-	int art;
-	int aln_r;
-	int aln_m;
-	int diff_chrom;
-	int aln_r_df;
-	int aln_m_df;
+    out_bam.finish();
+}
+
+void filter(string[] args){
+    auto bam = new BamReader(args[1]);
+    auto out_bam=new BamWriter(args[2]);
+    out_bam.writeSamHeader(bam.header());
+    out_bam.writeReferenceSequenceInfo(bam.reference_sequences());
+    auto sc_bam= new BamWriter("sc.bam");
+    sc_bam.writeSamHeader(bam.header());
+    sc_bam.writeReferenceSequenceInfo(bam.reference_sequences());
+    //auto db_bam=new BamWriter("db.bam");
+    //db_bam.writeSamHeader(bam.header());
+    //db_bam.writeReferenceSequenceInfo(bam.reference_sequences());
+    auto art_bam=new BamWriter("art.bam");
+    art_bam.writeSamHeader(bam.header());
+    art_bam.writeReferenceSequenceInfo(bam.reference_sequences());
+    //auto non_art_bam=new BamWriter("non_art.bam");
+    //non_art_bam.writeSamHeader(bam.header());
+    //non_art_bam.writeReferenceSequenceInfo(bam.reference_sequences());
+    int read_count;
+    int clipped;
+    int sup;
+    int art;
+    int aln_r;
+    int aln_m;
+    int diff_chrom;
+    int aln_r_df;
+    int aln_m_df;
     int art_strand;
     int art_far;
     int art_5;
-	foreach(BamRead rec;bam.allReads()){
-		read_count++;
-		if((rec.name in reads)is null)
-			continue;
-		ReadStatus val=reads[rec.name];
-		//writefln("%b",val);
-		/+
+    foreach(BamRead rec;bam.allReads()){
+        read_count++;
+        ReadStatus val;
+        val.raw=cast(ubyte)rec["RS"];
+        //if(val.raw==0)
+        //    continue;
+        //writefln("%b",val);
+        /+
 		ubyte read status encoding
 		0	Read is Normal
 		1	Read is Softclipped
@@ -275,9 +308,9 @@ void main(string[] args){
 		6   Mate is on Diff Chrom than read
 		7
 		+/
-		if(!val.art){
-			out_bam.writeRecord(rec);
-		}else{
+        if(!val.art){
+            out_bam.writeRecord(rec);
+        }else{
             art++;
             art_bam.writeRecord(rec);
             if(val.mate){
@@ -303,46 +336,42 @@ void main(string[] args){
             }
         }
         if(val.sc){
-			clipped++;
-			sc_bam.writeRecord(rec);
-		}if(val.sup){
-			sup++;
-		}
-		//if(((val&0b10000000)>>7)==1){
-		//	art_sp++;
-		//	art_bam.writeRecord(rec);
-		//}
+            clipped++;
+            sc_bam.writeRecord(rec);
+        }if(val.sup){
+            sup++;
+        }
 
-	}
+    }
     out_bam.finish();
     sc_bam.finish();
     art_bam.finish();
     stderr.write("read count:\t");
-	stderr.writeln(read_count);
+    stderr.writeln(read_count);
     stderr.write("Clipped %:\t");
     stderr.writeln(clipped/float(read_count));
-    stderr.writeln("Of those:");
-    stderr.write("With Supplementary alns:\t");
+    stderr.writeln("Of those clipped:");
+    stderr.write("\tWith Supplementary alns:\t");
     stderr.writeln(sup/float(clipped));
-    stderr.write("Artifact:\t");
+    stderr.write("\tArtifact:\t");
     stderr.writeln(art/float(clipped));
-    stderr.writeln("Of those:");
-    stderr.write("Artifact on 5' end:\t");
+    stderr.writeln("Of those artifact:");
+    stderr.write("\tArtifact on 5' end:\t");
     stderr.writeln(art_5/float(art));
-    stderr.write("Aligned near read:\t");
+    stderr.write("\tAligned near read:\t");
     stderr.writeln(aln_r/float(art));
-    stderr.write("Aligned near mate:\t");
+    stderr.write("\tAligned near mate:\t");
     stderr.writeln(aln_m/float(art));
-    stderr.write("Aligned near niether:\t");
+    stderr.write("\tAligned near niether:\t");
     stderr.writeln(art_far/float(art));
-    stderr.write("Mate and read on same strand:\t");
+    stderr.write("\tMate and read on same strand:\t");
     stderr.writeln(art_strand/float(art));
-    stderr.write("Mate and read on different chromosomes:\t");
+    stderr.write("\tMate and read on different chromosomes:\t");
     stderr.writeln(diff_chrom/float(art));
-    stderr.writeln("Of those:");
-    stderr.write("Artifact near read:\t");
+    stderr.writeln("Of those on different chromosomes:");
+    stderr.write("\tArtifact near read:\t");
     stderr.writeln(aln_r_df/float(diff_chrom));
-    stderr.write("Artifact near mate:\t");
+    stderr.write("\tArtifact near mate:\t");
     stderr.writeln(aln_m_df/float(diff_chrom));
-	//writeln(art_sep_chr/float(read_count));
+    //writeln(art_sep_chr/float(read_count));
 }
