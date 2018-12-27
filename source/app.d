@@ -6,9 +6,9 @@ import std.range:drop,array;
 import std.conv:to;
 import std.uni:toUpper;
 import std.traits:ReturnType;
-import bio.bam.reader;
-import bio.bam.cigar;
-import bio.bam.writer;
+import bio.std.hts.bam.reader;
+import bio.std.hts.bam.cigar;
+import bio.std.hts.bam.writer;
 import std.algorithm.iteration:filter;
 import std.algorithm:count;
 import std.bitmanip;
@@ -154,7 +154,9 @@ void main(string[] args){
     if(args[1]=="annotate"){
         annotate(args[1..$]);
     }else if(args[1]=="filter"){
-        filter(args[1..$]);
+        filter(args[1..$],false);
+    }else if(args[1]=="clip"){
+        filter(args[1..$],true);
     }
 }
 
@@ -261,7 +263,38 @@ void annotate(string[] args){
     out_bam.finish();
 }
 
-void filter(string[] args){
+void clipRead(BamRead * rec,ReadStatus * status){
+    auto new_cigar=rec.cigar.dup;
+    auto qual=rec.base_qualities.dup;
+    if(status.five_prime){
+        if(new_cigar[0].type=='H'&&new_cigar[1].type=='S'){
+            rec.sequence=rec.sequence[rec.cigar[1].length..$].map!(x=>x.asCharacter).array.idup;
+            rec.base_qualities=qual[rec.cigar[1].length..$];
+            new_cigar[1]=CigarOperation(new_cigar[0].length+new_cigar[1].length,new_cigar[0].type);
+            rec.cigar=new_cigar[1..$];
+        }else{
+            rec.sequence=rec.sequence[rec.cigar[0].length..$].map!(x=>x.asCharacter).array.idup;
+            rec.base_qualities=qual[rec.cigar[0].length..$];
+            new_cigar[0]=CigarOperation(new_cigar[0].length,'H');
+            rec.cigar=new_cigar;
+        }
+    }else{
+        if(new_cigar[$-1].type=='H'&&new_cigar[$-2].type=='S'){
+            rec.sequence=rec.sequence[0..$-rec.cigar[$-2].length].map!(x=>x.asCharacter).array.idup;
+            rec.base_qualities=qual[0..$-rec.cigar[$-2].length];
+            new_cigar[$-2]=CigarOperation(new_cigar[$-1].length+new_cigar[$-2].length,new_cigar[$-1].type);
+            rec.cigar=new_cigar[0..$-1];
+        }else{
+            rec.sequence=rec.sequence[0..$-rec.cigar[$-1].length].map!(x=>x.asCharacter).array.idup;
+            rec.base_qualities=qual[0..$-rec.cigar[$-1].length];
+            new_cigar[$-1]=CigarOperation(new_cigar[$-1].length,'H');
+            rec.cigar=new_cigar;
+        }
+    }
+
+}
+
+void filter(string[] args,bool clip){
     auto bam = new BamReader(args[1]);
     auto out_bam=new BamWriter(args[2]);
     out_bam.writeSamHeader(bam.header());
@@ -333,6 +366,10 @@ void filter(string[] args){
             }
             if(val.five_prime){
                 art_5++;
+            }
+            if(clip){
+                clipRead(&rec,&val);
+                out_bam.writeRecord(rec);
             }
         }
         if(val.sc){
