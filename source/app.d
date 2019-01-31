@@ -83,6 +83,9 @@ void align_clip(BamReader * bam,IndexedFastaFile * fai,Parasail * p,BamRead * re
     float cutoff;
     int start,end,score_read,score_mate;
     parasail_query res;
+    if(clip_len < 6){
+        return;
+    }
     //if left sofclip ? remove from left : else remove from right
     q_seq=left?rec.sequence[0..clip_len].rc:rec.sequence[$-clip_len..$].rc;
     //set cutoff
