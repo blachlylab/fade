@@ -12,8 +12,10 @@ import bio.std.hts.bam.writer;
 import std.algorithm.iteration:filter;
 import std.algorithm:count;
 import std.bitmanip;
+import std.getopt;
 import dparasail;
 import dhtslib.faidx:IndexedFastaFile;
+import std.parallelism:defaultPoolThreads;
 
 string rc(Range)(Range seq){
 	//seq.array.reverse;
@@ -31,7 +33,9 @@ unittest{
 	writeln(rc(seq));
 }
 
+/// ubyte bitflag for indicating artifact status
 union ReadStatus{
+    /// raw ubyte
     ubyte raw;
     //ubyte read status encoding
     mixin(bitfields!(
@@ -54,6 +58,7 @@ union ReadStatus{
     ));
 }
 
+/// report soft clips of a read using a cigar
 CigarOperation[2] parse_clips(const CigarOperations cigar){
     CigarOperation[2] clips;
     bool first=true;
@@ -70,9 +75,9 @@ CigarOperation[2] parse_clips(const CigarOperations cigar){
     return clips;
 }
 
+/// Align the sofclip to the read region or the mate region
 void align_clip(BamReader * bam,IndexedFastaFile * fai,Parasail * p,BamRead * rec,
         ReadStatus * status, uint clip_len,bool left){
-    //SW parasail needed
     string q_seq;
     string ref_seq;
     float cutoff;
@@ -138,6 +143,7 @@ void align_clip(BamReader * bam,IndexedFastaFile * fai,Parasail * p,BamRead * re
             if(score_read>=score_mate){
                 status.art=true;
                 status.mate=false;
+
             }else{
                 status.art=true;
                 status.mate=true;
@@ -150,13 +156,36 @@ void align_clip(BamReader * bam,IndexedFastaFile * fai,Parasail * p,BamRead * re
         }
     }
 }
+
+int threads;
+
 void main(string[] args){
+    auto res=getopt(args,config.bundling,
+	"threads|t","threads for parsing the bam file",&threads);
+	if (res.helpWanted) {
+		defaultGetoptPrinter(
+            "usage: ./artifact [annotate] [bam] [reference fasta with fai] [out bam]\n"~
+            "usage: ./artifact [filter or clip] [bam] [out bam]\n"~
+            "annotate: marks artifact reads in bam tags (must be done first)\n"~
+            "filter: removes fragments (read and mate) with artifact (requires queryname sorted bam)\n"~
+            "clip: removes artifact region only", res.options);
+		stderr.writeln();
+		return;
+	}
+	if(args.length<3){
+		writeln("usage: ./artifact [annotate] [bam] [reference fasta with fai] [out bam]");
+		return;
+	}else{
+		if(threads!=0){
+			defaultPoolThreads(threads);
+		}
+    }
     if(args[1]=="annotate"){
         annotate(args[1..$]);
     }else if(args[1]=="filter"){
-        filter(args[1..$],false);
+        filter!false(args[1..$]);
     }else if(args[1]=="clip"){
-        filter(args[1..$],true);
+        filter!true(args[1..$]);
     }
 }
 
@@ -185,7 +214,7 @@ void annotate(string[] args){
             rec.is_unmapped()||
             rec.cigar.filter!(x=>x.type=='S').count()==0
         ){
-            rec["RS"]=status.raw;
+            rec["rs"]=status.raw;
             out_bam.writeRecord(rec);
             continue;
         }
@@ -209,7 +238,7 @@ void annotate(string[] args){
 					//read_class|=0b1000;
                     status.mate=false;
 					//read_class|=0b1_0000;
-                    rec["RS"]=status.raw;
+                    rec["rs"]=status.raw;
                     out_bam.writeRecord(rec);
 					continue;
 				}
@@ -223,7 +252,7 @@ void annotate(string[] args){
 					//read_class|=0b1000;
                     status.mate=true;
 					//read_class|=0b10_0000;
-                    rec["RS"]=status.raw;
+                    rec["rs"]=status.raw;
                     out_bam.writeRecord(rec);
 					continue;
 				}
@@ -237,7 +266,7 @@ void annotate(string[] args){
                         status.mate=false;
                         status.far=true;
                         //read_class|=0b10_0000;
-                        rec["RS"]=status.raw;
+                        rec["rs"]=status.raw;
                         out_bam.writeRecord(rec);
                         continue;
                     }
@@ -252,11 +281,11 @@ void annotate(string[] args){
 		if(clips[1].length()!=0){
             align_clip(&bam,&fai,&p,&rec,&status,clips[1].length(),false);
 		}
-        rec["RS"]=status.raw;
-        assert(rec["RS"].bam_typeid=='C');
+        rec["rs"]=status.raw;
+        assert(rec["rs"].bam_typeid=='C');
 		//reads[rec.name]=read_class;
         //if(status.art){
-        //    rec["RS"]=ReadSt.rawatus;
+        //    rec["rs"]=ReadSt.rawatus;
         //}
         out_bam.writeRecord(rec);
 	}
@@ -294,7 +323,7 @@ void clipRead(BamRead * rec,ReadStatus * status){
 
 }
 
-void filter(string[] args,bool clip){
+void filter(bool clip)(string[] args){
     auto bam = new BamReader(args[1]);
     auto out_bam=new BamWriter(args[2]);
     out_bam.writeSamHeader(bam.header());
@@ -323,63 +352,137 @@ void filter(string[] args,bool clip){
     int art_strand;
     int art_far;
     int art_5;
-    foreach(BamRead rec;bam.allReads()){
-        read_count++;
-        ReadStatus val;
-        val.raw=cast(ubyte)rec["RS"];
-        //if(val.raw==0)
-        //    continue;
-        //writefln("%b",val);
-        /+
-		ubyte read status encoding
-		0	Read is Normal
-		1	Read is Softclipped
-		2	Read has Supp Alignment
-		3   Read is Artifact
-		4	Artifact aligns to read region
-		5	Artifact aligns to mate region
-		6   Mate is on Diff Chrom than read
-		7
-		+/
-        if(!val.art){
-            out_bam.writeRecord(rec);
-        }else{
-            art++;
-            art_bam.writeRecord(rec);
-            if(val.mate){
-                aln_m++;
-            }else if(!val.far){
-                aln_r++;
+    static if(clip==true){
+        foreach(BamRead rec;bam.allReads()){
+            read_count++;
+            ReadStatus val;
+            auto tag=rec["rs"];
+            if(tag.is_nothing){
+                out_bam.writeRecord(rec);
+                continue;
+            }
+            val.raw=cast(ubyte)tag;
+            //if(val.raw==0)
+            //    continue;
+            //writefln("%b",val);
+            /+
+            //0,sc	Read is Softclipped
+            //1,sup	Read has Supp Alignment        
+            //2,art   Read is Artifact
+            //3,mate	Artifact aligns to mate region and not read
+            //4,mate_diff   Mate is on Diff Chrom than read
+            //5,five_prime artifact not 3'
+            //6,same_strand	same strand
+            //7,far supp alignment not close to read or mate
+            +/
+            if(!val.art){
+                out_bam.writeRecord(rec);
             }else{
-                art_far++;
-            }
-            if(val.mate_diff){
-                diff_chrom++;
+                art++;
+                art_bam.writeRecord(rec);
                 if(val.mate){
-                    aln_m_df++;
+                    aln_m++;
                 }else if(!val.far){
-                    aln_r_df++;
+                    aln_r++;
+                }else{
+                    art_far++;
                 }
-            }
-            if(val.same_strand){
-                art_strand++;
-            }
-            if(val.five_prime){
-                art_5++;
-            }
-            if(clip){
+                if(val.mate_diff){
+                    diff_chrom++;
+                    if(val.mate){
+                        aln_m_df++;
+                    }else if(!val.far){
+                        aln_r_df++;
+                    }
+                }
+                if(val.same_strand){
+                    art_strand++;
+                }
+                if(val.five_prime){
+                    art_5++;
+                }
                 clipRead(&rec,&val);
                 out_bam.writeRecord(rec);
             }
+            if(val.sc){
+                clipped++;
+                sc_bam.writeRecord(rec);
+            }if(val.sup){
+                sup++;
+            }
         }
-        if(val.sc){
-            clipped++;
-            sc_bam.writeRecord(rec);
-        }if(val.sup){
-            sup++;
-        }
-
     }
+    static if(clip==false){
+        import std.algorithm.iteration:chunkBy;
+        foreach(recs;bam.allReads.chunkBy!((a,b)=>a.name==b.name)){
+            auto grouped_reads=recs.array;
+            bool art_found=false;
+            foreach(rec;grouped_reads){
+                read_count++;
+                ReadStatus val;
+                auto tag=rec["rs"];
+                if(tag.is_nothing){
+                    // out_bam.writeRecord(rec);
+                    continue;
+                }
+                val.raw=cast(ubyte)tag;
+                //if(val.raw==0)
+                //    continue;
+                //writefln("%b",val);
+                /+
+                //0,sc	Read is Softclipped
+                //1,sup	Read has Supp Alignment        
+                //2,art   Read is Artifact
+                //3,mate	Artifact aligns to mate region and not read
+                //4,mate_diff   Mate is on Diff Chrom than read
+                //5,five_prime artifact not 3'
+                //6,same_strand	same strand
+                //7,far supp alignment not close to read or mate
+                +/
+                if(val.art){
+                    art_found=true;
+                    art++;
+                    if(val.mate){
+                        aln_m++;
+                    }else if(!val.far){
+                        aln_r++;
+                    }else{
+                        art_far++;
+                    }
+                    if(val.mate_diff){
+                        diff_chrom++;
+                        if(val.mate){
+                            aln_m_df++;
+                        }else if(!val.far){
+                            aln_r_df++;
+                        }
+                    }
+                    if(val.same_strand){
+                        art_strand++;
+                    }
+                    if(val.five_prime){
+                        art_5++;
+                    }
+                }
+                if(val.sc){
+                    clipped++;
+                    sc_bam.writeRecord(rec);
+                }if(val.sup){
+                    sup++;
+                }
+            }
+            if(art_found){
+                foreach(rec;grouped_reads){
+                    art_bam.writeRecord(rec);
+                }
+            }else{
+                foreach(rec;grouped_reads){
+                    out_bam.writeRecord(rec);
+                }
+            }
+        }
+    }
+    
     out_bam.finish();
     sc_bam.finish();
     art_bam.finish();
