@@ -75,10 +75,21 @@ CigarOperation[2] parse_clips(const CigarOperations cigar){
     return clips;
 }
 
+//quick and dirty qscore average
+ushort avg_qscore(ubyte[] q){
+    ushort score=q[0];
+    foreach(c;q){
+        score+=c;
+        score>>=1;
+    }
+    return score;
+}
+
 /// Align the sofclip to the read region or the mate region
 void align_clip(BamReader * bam,IndexedFastaFile * fai,Parasail * p,BamRead * rec,
         ReadStatus * status, uint clip_len,bool left){
     string q_seq;
+    ubyte[] qual_seq;
     string ref_seq;
     float cutoff;
     int start,end,score_read,score_mate;
@@ -88,6 +99,9 @@ void align_clip(BamReader * bam,IndexedFastaFile * fai,Parasail * p,BamRead * re
     }
     //if left sofclip ? remove from left : else remove from right
     q_seq=left?rec.sequence[0..clip_len].rc:rec.sequence[$-clip_len..$].rc;
+    qual_seq=left?rec.base_qualities[0..clip_len]:rec.base_qualities[$-clip_len..$];
+    // writeln(qual_seq);
+    if(avg_qscore(qual_seq)<20) return;
     //set cutoff
     cutoff=q_seq.length*0.75;
 
