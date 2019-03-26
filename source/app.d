@@ -331,13 +331,13 @@ void filter(bool clip)(string[] args){
     auto out_bam=new BamWriter(args[2]);
     out_bam.writeSamHeader(bam.header());
     out_bam.writeReferenceSequenceInfo(bam.reference_sequences());
-    auto sc_bam= new BamWriter("sc.bam");
-    sc_bam.writeSamHeader(bam.header());
-    sc_bam.writeReferenceSequenceInfo(bam.reference_sequences());
+    //auto sc_bam= new BamWriter("sc.bam");
+    //sc_bam.writeSamHeader(bam.header());
+    //sc_bam.writeReferenceSequenceInfo(bam.reference_sequences());
     //auto db_bam=new BamWriter("db.bam");
     //db_bam.writeSamHeader(bam.header());
     //db_bam.writeReferenceSequenceInfo(bam.reference_sequences());
-    auto art_bam=new BamWriter("art.bam");
+    auto art_bam=new BamWriter(args[2]~".art.bam");
     art_bam.writeSamHeader(bam.header());
     art_bam.writeReferenceSequenceInfo(bam.reference_sequences());
     //auto non_art_bam=new BamWriter("non_art.bam");
@@ -409,7 +409,7 @@ void filter(bool clip)(string[] args){
             }
             if(val.sc){
                 clipped++;
-                sc_bam.writeRecord(rec);
+                //sc_bam.writeRecord(rec);
             }if(val.sup){
                 sup++;
             }
@@ -469,7 +469,7 @@ void filter(bool clip)(string[] args){
                 }
                 if(val.sc){
                     clipped++;
-                    sc_bam.writeRecord(rec);
+                    //sc_bam.writeRecord(rec);
                 }if(val.sup){
                     sup++;
                 }
@@ -487,7 +487,7 @@ void filter(bool clip)(string[] args){
     }
     
     out_bam.finish();
-    sc_bam.finish();
+    //sc_bam.finish();
     art_bam.finish();
     stderr.write("read count:\t");
     stderr.writeln(read_count);
