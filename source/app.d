@@ -6,26 +6,17 @@ import std.range:drop,array;
 import std.conv:to;
 import std.uni:toUpper;
 import std.traits:ReturnType;
-import bio.std.hts.bam.reader;
-import bio.std.hts.bam.cigar;
-import bio.std.hts.bam.writer;
 import std.algorithm.iteration:filter;
 import std.algorithm:count;
 import std.bitmanip;
 import std.getopt;
 import dparasail;
-import dhtslib.faidx:IndexedFastaFile;
+import dhtslib;
 import std.parallelism:defaultPoolThreads;
 
 string rc(Range)(Range seq){
 	//seq.array.reverse;
 	return seq.array.reverse.map!(x=>cast(char)x.complement).array.idup;
-}
-
-CigarOperations cigarFromString(string cigar) {
-    return match(cigar, regex(`(\d+)([A-Z=])`, "g"))
-            .map!(m => CigarOperation(m[1].to!uint, m[2].to!char))
-            .array;
 }
 
 unittest{
@@ -59,10 +50,10 @@ union ReadStatus{
 }
 
 /// report soft clips of a read using a cigar
-CigarOperation[2] parse_clips(const CigarOperations cigar){
-    CigarOperation[2] clips;
+CigarOp[2] parse_clips(const Cigar cigar){
+    CigarOp[2] clips;
     bool first=true;
-    foreach(CigarOperation op;cigar){
+    foreach(CigarOp op;cigar.ops){
         auto is_sc=op.is_query_consuming()&&op.is_clipping();
         if(first&&!is_sc){
             first=false;
@@ -86,7 +77,7 @@ ushort avg_qscore(ubyte[] q){
 }
 
 /// Align the sofclip to the read region or the mate region
-void align_clip(BamReader * bam,IndexedFastaFile * fai,Parasail * p,BamRead * rec,
+void align_clip(SAMReader * bam,IndexedFastaFile * fai,Parasail * p,SAMRecord * rec,
         ReadStatus * status, uint clip_len,bool left){
     string q_seq;
     ubyte[] qual_seq;
@@ -99,56 +90,56 @@ void align_clip(BamReader * bam,IndexedFastaFile * fai,Parasail * p,BamRead * re
     }
     //if left sofclip ? remove from left : else remove from right
     q_seq=left?rec.sequence[0..clip_len].rc:rec.sequence[$-clip_len..$].rc;
-    qual_seq=left?rec.base_qualities[0..clip_len]:rec.base_qualities[$-clip_len..$];
+    qual_seq=left?rec.qscores!false[0..clip_len]:qscores!false[$-clip_len..$];
     // writeln(qual_seq);
     if(avg_qscore(qual_seq)<20) return;
     //set cutoff
     cutoff=q_seq.length*0.75;
 
-    start=rec.position()-300;
+    start=rec.pos()-300;
     //if start<0: start is zero
     if(start<0){
         start=0;
     }
 
-    end=rec.position()+rec.basesCovered()+300;
+    end=rec.pos()+rec.cigar.ref_bases_covered()+300;
     //if end>length of chrom: end is length of chrom
-    if(end>bam.header.getSequence(rec.ref_id).length){
-        end=bam.header.getSequence(rec.ref_id).length;
+    if(end>bam.target_lens[rec.tid]){
+        end=bam.target_lens[rec.tid];
     }
     //get read region seq
-    ref_seq=fai.fetchSequence(rec.ref_name(),start,end).toUpper;
+    ref_seq=fai.fetchSequence(bam.target_names[rec.tid],start,end).toUpper;
     //align
     res=p.sw_striped(q_seq,ref_seq);
     //get read region score
     score_read=res.result.score;
 
     debug{
-        writeln(rec.ref_name()," ",start," ",end);
-        writeln(rec.name());
+        writeln(rec.tid()," ",start," ",end);
+        writeln(rec.queryName());
         writeln(q_seq);
         writeln(ref_seq);
         writeln(score_read);
     }
 
     res.close();
-    if(rec.is_paired()&&!rec.mate_is_unmapped()){
+    if(rec.isPaired()&&!rec.isMateMapped()){
         //rinse and repeat for mate region
-        start=rec.mate_position()-300;
+        start=rec.matePos()-300;
         if(start<0){
             start=0;
         }
-        end=rec.mate_position()+300+151; //here we can't know the bases covered so estimate 151 bases
-        if(end>bam.header.getSequence(rec.mate_ref_id).length){
-            end=bam.header.getSequence(rec.mate_ref_id).length;
+        end=rec.matePos()+300+151; //here we can't know the bases covered so estimate 151 bases
+        if(end>bam.target_lens[rec.mateTID]){
+            end=bam.target_lens[rec.mateTID];
         }
-        ref_seq=fai.fetchSequence(rec.mate_ref_name(),start,end).toUpper;
+        ref_seq=fai.fetchSequence(bam.target_names[rec.mateTID],start,end).toUpper;
         res=p.sw_striped(q_seq,ref_seq);
         score_mate=res.result.score;
 
         debug{
-            writeln(rec.mate_ref_name()," ",start," ",end);
-            writeln(rec.name());
+            writeln(rec.mateTID()," ",start," ",end);
+            writeln(rec.queryName());
             writeln(q_seq);
             writeln(ref_seq);
             writeln(score_mate);
@@ -207,9 +198,9 @@ void main(string[] args){
 }
 
 void annotate(string[] args){
-	auto bam = new BamReader(args[1]);
+	auto bam = new SAMReader(args[1]);
 	auto fai=IndexedFastaFile(args[2]);
-	auto out_bam=new BamWriter(args[3]);
+	auto out_bam=new SAMWriter(args[3]);
 	out_bam.writeSamHeader(bam.header());
 	out_bam.writeReferenceSequenceInfo(bam.reference_sequences());
 	//string[2] strands=["+","-"];
@@ -218,7 +209,7 @@ void annotate(string[] args){
     //ReadStatus[string] reads;
 
 	auto p=Parasail("ACTGN",1,-1,1,3);
-	foreach(BamRead rec;bam.allReads){
+	foreach(SAMRecord rec;bam.allReads){
         ReadStatus status;
 		if(!rec.mate_is_unmapped()&&rec.mate_ref_name()!=rec.ref_name())
 			//read_class|=0b100_0000;
@@ -237,7 +228,7 @@ void annotate(string[] args){
         }
 		//read_class|=0b10;
         status.sc=true;
-        CigarOperation[2] clips=parse_clips(rec.cigar);
+        CigarOp[2] clips=parse_clips(rec.cigar);
         if(clips[0].length!=0){
             status.five_prime=true;
         }
@@ -247,8 +238,8 @@ void annotate(string[] args){
 			string[] sup=rec["SA"].toString.splitter(",").array;
 			if(sup[0]==rec.ref_name()){
 				if (
-					(sup[1].to!int>rec.position()-300)&&
-					(sup[1].to!int<rec.position()+300)//&&
+					(sup[1].to!int>rec.pos()-300)&&
+					(sup[1].to!int<rec.pos()+300)//&&
 					//(strands[rec.is_reverse_strand]!=sup[2])
 				){
                     status.art=true;
@@ -309,31 +300,31 @@ void annotate(string[] args){
     out_bam.finish();
 }
 
-void clipRead(BamRead * rec,ReadStatus * status){
+void clipRead(SAMRecord * rec,ReadStatus * status){
     auto new_cigar=rec.cigar.dup;
     auto qual=rec.base_qualities.dup;
     if(status.five_prime){
         if(new_cigar[0].type=='H'&&new_cigar[1].type=='S'){
             rec.sequence=rec.sequence[rec.cigar[1].length..$].map!(x=>x.asCharacter).array.idup;
             rec.base_qualities=qual[rec.cigar[1].length..$];
-            new_cigar[1]=CigarOperation(new_cigar[0].length+new_cigar[1].length,new_cigar[0].type);
+            new_cigar[1]=CigarOp(new_cigar[0].length+new_cigar[1].length,new_cigar[0].type);
             rec.cigar=new_cigar[1..$];
         }else{
             rec.sequence=rec.sequence[rec.cigar[0].length..$].map!(x=>x.asCharacter).array.idup;
             rec.base_qualities=qual[rec.cigar[0].length..$];
-            new_cigar[0]=CigarOperation(new_cigar[0].length,'H');
+            new_cigar[0]=CigarOp(new_cigar[0].length,'H');
             rec.cigar=new_cigar;
         }
     }else{
         if(new_cigar[$-1].type=='H'&&new_cigar[$-2].type=='S'){
             rec.sequence=rec.sequence[0..$-rec.cigar[$-2].length].map!(x=>x.asCharacter).array.idup;
             rec.base_qualities=qual[0..$-rec.cigar[$-2].length];
-            new_cigar[$-2]=CigarOperation(new_cigar[$-1].length+new_cigar[$-2].length,new_cigar[$-1].type);
+            new_cigar[$-2]=CigarOp(new_cigar[$-1].length+new_cigar[$-2].length,new_cigar[$-1].type);
             rec.cigar=new_cigar[0..$-1];
         }else{
             rec.sequence=rec.sequence[0..$-rec.cigar[$-1].length].map!(x=>x.asCharacter).array.idup;
             rec.base_qualities=qual[0..$-rec.cigar[$-1].length];
-            new_cigar[$-1]=CigarOperation(new_cigar[$-1].length,'H');
+            new_cigar[$-1]=CigarOp(new_cigar[$-1].length,'H');
             rec.cigar=new_cigar;
         }
     }
@@ -341,20 +332,20 @@ void clipRead(BamRead * rec,ReadStatus * status){
 }
 
 void filter(bool clip)(string[] args){
-    auto bam = new BamReader(args[1]);
-    auto out_bam=new BamWriter(args[2]);
+    auto bam = new SAMReader(args[1]);
+    auto out_bam=new SAMWriter(args[2]);
     out_bam.writeSamHeader(bam.header());
     out_bam.writeReferenceSequenceInfo(bam.reference_sequences());
-    //auto sc_bam= new BamWriter("sc.bam");
+    //auto sc_bam= new SAMWriter("sc.bam");
     //sc_bam.writeSamHeader(bam.header());
     //sc_bam.writeReferenceSequenceInfo(bam.reference_sequences());
-    //auto db_bam=new BamWriter("db.bam");
+    //auto db_bam=new SAMWriter("db.bam");
     //db_bam.writeSamHeader(bam.header());
     //db_bam.writeReferenceSequenceInfo(bam.reference_sequences());
-    auto art_bam=new BamWriter(args[2]~".art.bam");
+    auto art_bam=new SAMWriter(args[2]~".art.bam");
     art_bam.writeSamHeader(bam.header());
     art_bam.writeReferenceSequenceInfo(bam.reference_sequences());
-    //auto non_art_bam=new BamWriter("non_art.bam");
+    //auto non_art_bam=new SAMWriter("non_art.bam");
     //non_art_bam.writeSamHeader(bam.header());
     //non_art_bam.writeReferenceSequenceInfo(bam.reference_sequences());
     int read_count;
@@ -370,7 +361,7 @@ void filter(bool clip)(string[] args){
     int art_far;
     int art_5;
     static if(clip==true){
-        foreach(BamRead rec;bam.allReads()){
+        foreach(SAMRecord rec;bam.allReads()){
             read_count++;
             ReadStatus val;
             auto tag=rec["rs"];
@@ -431,7 +422,7 @@ void filter(bool clip)(string[] args){
     }
     static if(clip==false){
         import std.algorithm.iteration:chunkBy;
-        foreach(recs;bam.allReads.chunkBy!((a,b)=>a.name==b.name)){
+        foreach(recs;bam.all_records.chunkBy!((a,b)=>a.queryName==b.queryName)){
             auto grouped_reads=recs.array;
             bool art_found=false;
             foreach(rec;grouped_reads){

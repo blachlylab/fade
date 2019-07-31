@@ -1,12 +1,10 @@
 {
 	"name": "artifact",
 	"authors": [
-		"musta"
+		"Charles Gregory"
 	],
 	"description": "A minimal D application.",
-	"license": "proprietary",
-	"__sourcePaths":["source","BioD/bio"],
-	"buildRequirements":["allowWarnings"],
+	"license": "MIT",
 	"dependencies": {
 		"undead": "~>1.0.9",
 		"dparasail":{
