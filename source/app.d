@@ -213,9 +213,9 @@ void main(string[] args){
 }
 
 void annotate(string[] args){
-	auto bam = new SAMReader(args[1]);
+	auto bam = SAMReader(args[1]);
 	auto fai=IndexedFastaFile(args[2]);
-	auto out_bam=new SAMWriter(args[3],bam.header);
+	auto out_bam=SAMWriter(args[3],bam.header);
 	//string[2] strands=["+","-"];
 
 	//ubyte[string] reads;
@@ -296,11 +296,11 @@ void annotate(string[] args){
 		}
 		//left soft-clip (left on reference not 5' neccesarily)
 		if(clips[0].length!=0){
-            align_clip(bam,&fai,&p,&rec,&status,clips[0].length(),true);
+            align_clip(&bam,&fai,&p,&rec,&status,clips[0].length(),true);
 		}
 		//right soft-clip
 		if(clips[1].length()!=0){
-            align_clip(bam,&fai,&p,&rec,&status,clips[1].length(),false);
+            align_clip(&bam,&fai,&p,&rec,&status,clips[1].length(),false);
 		}
         rec["rs"]=status.raw;
         assert(rec["rs"].check!ubyte);
@@ -344,16 +344,16 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
 }
 
 void filter(bool clip)(string[] args){
-    auto bam = new SAMReader(args[1]);
-    auto out_bam=new SAMWriter(args[2],bam.header);
-    //auto sc_bam= new SAMWriter("sc.bam");
+    auto bam = SAMReader(args[1]);
+    auto out_bam=SAMWriter(args[2],bam.header);
+    //auto sc_bam= SAMWriter("sc.bam");
     //sc_bam.writeSamHeader(bam.header());
     //sc_bam.writeReferenceSequenceInfo(bam.reference_sequences());
-    //auto db_bam=new SAMWriter("db.bam");
+    //auto db_bam=SAMWriter("db.bam");
     //db_bam.writeSamHeader(bam.header());
     //db_bam.writeReferenceSequenceInfo(bam.reference_sequences());
-    auto art_bam=new SAMWriter(args[2]~".art.bam",bam.header);
-    //auto non_art_bam=new SAMWriter("non_art.bam");
+    auto art_bam=SAMWriter(args[2]~".art.bam",bam.header);
+    //auto non_art_bam=SAMWriter("non_art.bam");
     //non_art_bam.writeSamHeader(bam.header());
     //non_art_bam.writeReferenceSequenceInfo(bam.reference_sequences());
     int read_count;
@@ -431,6 +431,8 @@ void filter(bool clip)(string[] args){
     static if(clip==false){
         import std.algorithm.iteration:chunkBy;
         foreach(recs;bam.all_records.chunkBy!((a,b)=>a.queryName==b.queryName)){
+            // recs.map!(x=>x.queryName).each!writeln;
+            // bam.fp.fp.bgzf.is_write.writeln;
             auto grouped_reads=recs.array;
             bool art_found=false;
             foreach(rec;grouped_reads){
