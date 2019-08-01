@@ -138,7 +138,7 @@ void align_clip(SAMReader * bam,IndexedFastaFile * fai,Parasail * p,SAMRecord * 
     }
 
     res.close();
-    if(rec.isPaired()&&!rec.isMateMapped()){
+    if(rec.isPaired()&&rec.isMateMapped()){
         //rinse and repeat for mate region
         start=rec.matePos()-300;
         if(start<0){
