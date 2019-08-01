@@ -187,8 +187,8 @@ void main(string[] args){
 	"threads|t","threads for parsing the bam file",&threads);
 	if (res.helpWanted) {
 		defaultGetoptPrinter(
-            "usage: ./artifact [annotate] [bam] [reference fasta with fai] [out bam]\n"~
-            "usage: ./artifact [filter or clip] [bam] [out bam]\n"~
+            "usage: ./fade [annotate] [bam] [reference fasta with fai] [out bam]\n"~
+            "usage: ./fade [filter or clip] [bam] [out bam]\n"~
             "annotate: marks artifact reads in bam tags (must be done first)\n"~
             "filter: removes fragments (read and mate) with artifact (requires queryname sorted bam)\n"~
             "clip: removes artifact region only", res.options);
@@ -196,7 +196,7 @@ void main(string[] args){
 		return;
 	}
 	if(args.length<3){
-		writeln("usage: ./artifact [annotate] [bam] [reference fasta with fai] [out bam]");
+		writeln("usage: ./fade [annotate] [bam] [reference fasta with fai] [out bam]\nusage: ./fade [filter or clip] [bam] [out bam]");
 		return;
 	}else{
 		if(threads!=0){
