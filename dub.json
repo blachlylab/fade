@@ -6,12 +6,11 @@
 	"description": "A minimal D application.",
 	"license": "MIT",
 	"dependencies": {
-		"undead": "~>1.0.9",
 		"dparasail":{
-			"path":"../dparasail"
+			"path":"dparasail"
 		},
 		"dhtslib":{
-			"path":"../dhtslib"
+			"path":"dhtslib"
 		}
 	},
 	"configurations":[
@@ -21,7 +20,6 @@
 	},{
 		"name":"static",
 		"targetType": "executable",
-		"libs":["curl","crypto"],
 		"subConfigurations": {
 			"dhtslib":"source-static"
 		}
