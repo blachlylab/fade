@@ -12,11 +12,26 @@ import std.bitmanip;
 import std.getopt;
 import dparasail;
 import dhtslib;
+import dhtslib.htslib.sam;
 import std.parallelism:defaultPoolThreads;
 
-string rc(Range)(Range seq){
+// string rc(Range)(Range seq){
 	//seq.array.reverse;
-	return seq.array.reverse.map!(x=>cast(char)x.complement).array.idup;
+	// return seq.array.reverse.map!(x=>cast(char)x.complement).array.idup;
+// }
+
+const(char)[16] seq_comp_table = [0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15];
+
+// extract and reverse-complement soft-clipped portion
+char[] extract_soft_clip(SAMRecord * rec, int start, int end){
+    ubyte * seq_ptr = (rec.b.data + (rec.b.core.n_cigar<<2) + rec.b.core.l_qname);
+    char[] ret;
+    ret.length=end-start;
+    auto j = end-start-1;
+    for(int i = start;i<end;i++){
+        ret[j--]=seq_nt16_str[seq_comp_table[((seq_ptr)[(i)>>1] >> ((~(i)&1)<<2) & 0xf)]];
+    }
+    return ret;
 }
 
 unittest{
@@ -67,7 +82,7 @@ CigarOp[2] parse_clips(const Cigar cigar){
 }
 
 //quick and dirty qscore average
-ushort avg_qscore(ubyte[] q){
+ushort avg_qscore(const(char)[] q){
     ushort score=q[0];
     foreach(c;q){
         score+=c;
@@ -80,7 +95,7 @@ ushort avg_qscore(ubyte[] q){
 void align_clip(SAMReader * bam,IndexedFastaFile * fai,Parasail * p,SAMRecord * rec,
         ReadStatus * status, uint clip_len,bool left){
     string q_seq;
-    ubyte[] qual_seq;
+    const(char)[] qual_seq;
     string ref_seq;
     float cutoff;
     int start,end,score_read,score_mate;
@@ -89,8 +104,8 @@ void align_clip(SAMReader * bam,IndexedFastaFile * fai,Parasail * p,SAMRecord * 
         return;
     }
     //if left sofclip ? remove from left : else remove from right
-    q_seq=left?rec.sequence[0..clip_len].rc:rec.sequence[$-clip_len..$].rc;
-    qual_seq=left?rec.qscores!false[0..clip_len]:qscores!false[$-clip_len..$];
+    q_seq=left?extract_soft_clip(rec,0,clip_len).idup:extract_soft_clip(rec,rec.b.core.l_qseq-clip_len,rec.b.core.l_qseq).idup;
+    qual_seq=left?rec.qscores!false()[0..clip_len]:rec.qscores!false()[$-clip_len..$];
     // writeln(qual_seq);
     if(avg_qscore(qual_seq)<20) return;
     //set cutoff
@@ -200,30 +215,28 @@ void main(string[] args){
 void annotate(string[] args){
 	auto bam = new SAMReader(args[1]);
 	auto fai=IndexedFastaFile(args[2]);
-	auto out_bam=new SAMWriter(args[3]);
-	out_bam.writeSamHeader(bam.header());
-	out_bam.writeReferenceSequenceInfo(bam.reference_sequences());
+	auto out_bam=new SAMWriter(args[3],bam.header);
 	//string[2] strands=["+","-"];
 
 	//ubyte[string] reads;
     //ReadStatus[string] reads;
 
 	auto p=Parasail("ACTGN",1,-1,1,3);
-	foreach(SAMRecord rec;bam.allReads){
+	foreach(SAMRecord rec;bam.all_records){
         ReadStatus status;
-		if(!rec.mate_is_unmapped()&&rec.mate_ref_name()!=rec.ref_name())
+		if(rec.isMateMapped()&&rec.mateTID()!=rec.tid())
 			//read_class|=0b100_0000;
             status.mate_diff=true;
-		if(rec.mate_is_reverse_strand()==rec.is_reverse_strand()){
+		if(rec.mateReversed()==rec.isReversed()){
             status.same_strand=true;
         }
-        if(rec.is_supplementary()||
-            rec.is_secondary_alignment()||
-            rec.is_unmapped()||
-            rec.cigar.filter!(x=>x.type=='S').count()==0
+        if(rec.isSupplementary()||
+            rec.isSecondary()||
+            !rec.isMapped()||
+            rec.cigar.ops.filter!(x=>x.op==Ops.SOFT_CLIP).count()==0
         ){
             rec["rs"]=status.raw;
-            out_bam.writeRecord(rec);
+            out_bam.write(&rec);
             continue;
         }
 		//read_class|=0b10;
@@ -232,11 +245,11 @@ void annotate(string[] args){
         if(clips[0].length!=0){
             status.five_prime=true;
         }
-		if(!rec["SA"].is_nothing()){
+		if(!(rec["SA"].data==null)){
 			//read_class|=0b100;
             status.sup=true;
 			string[] sup=rec["SA"].toString.splitter(",").array;
-			if(sup[0]==rec.ref_name()){
+			if(sup[0]==bam.target_names[rec.tid]){
 				if (
 					(sup[1].to!int>rec.pos()-300)&&
 					(sup[1].to!int<rec.pos()+300)//&&
@@ -247,13 +260,13 @@ void annotate(string[] args){
                     status.mate=false;
 					//read_class|=0b1_0000;
                     rec["rs"]=status.raw;
-                    out_bam.writeRecord(rec);
+                    out_bam.write(&rec);
 					continue;
 				}
-			}else if(sup[0]==rec.mate_ref_name()){
+			}else if(sup[0]==bam.target_names[rec.mateTID]){
 				if (
-					(sup[1].to!int>rec.mate_position()-300)&&
-					(sup[1].to!int<rec.mate_position()+300)//&&
+					(sup[1].to!int>rec.matePos()-300)&&
+					(sup[1].to!int<rec.matePos()+300)//&&
 					//(strands[rec.mate_is_reverse_strand]!=sup[2])
 				){
                     status.art=true;
@@ -261,7 +274,7 @@ void annotate(string[] args){
                     status.mate=true;
 					//read_class|=0b10_0000;
                     rec["rs"]=status.raw;
-                    out_bam.writeRecord(rec);
+                    out_bam.write(&rec);
 					continue;
 				}
 			}else{
@@ -275,7 +288,7 @@ void annotate(string[] args){
                         status.far=true;
                         //read_class|=0b10_0000;
                         rec["rs"]=status.raw;
-                        out_bam.writeRecord(rec);
+                        out_bam.write(&rec);
                         continue;
                     }
                 }
@@ -283,49 +296,48 @@ void annotate(string[] args){
 		}
 		//left soft-clip (left on reference not 5' neccesarily)
 		if(clips[0].length!=0){
-            align_clip(&bam,&fai,&p,&rec,&status,clips[0].length(),true);
+            align_clip(bam,&fai,&p,&rec,&status,clips[0].length(),true);
 		}
 		//right soft-clip
 		if(clips[1].length()!=0){
-            align_clip(&bam,&fai,&p,&rec,&status,clips[1].length(),false);
+            align_clip(bam,&fai,&p,&rec,&status,clips[1].length(),false);
 		}
         rec["rs"]=status.raw;
-        assert(rec["rs"].bam_typeid=='C');
+        assert(rec["rs"].check!ubyte);
 		//reads[rec.name]=read_class;
         //if(status.art){
         //    rec["rs"]=ReadSt.rawatus;
         //}
-        out_bam.writeRecord(rec);
+        out_bam.write(&rec);
 	}
-    out_bam.finish();
 }
 
 void clipRead(SAMRecord * rec,ReadStatus * status){
-    auto new_cigar=rec.cigar.dup;
-    auto qual=rec.base_qualities.dup;
+    auto new_cigar=rec.cigar.ops.dup;
+    auto qual=rec.qscores!false();
     if(status.five_prime){
-        if(new_cigar[0].type=='H'&&new_cigar[1].type=='S'){
-            rec.sequence=rec.sequence[rec.cigar[1].length..$].map!(x=>x.asCharacter).array.idup;
-            rec.base_qualities=qual[rec.cigar[1].length..$];
-            new_cigar[1]=CigarOp(new_cigar[0].length+new_cigar[1].length,new_cigar[0].type);
-            rec.cigar=new_cigar[1..$];
+        if(new_cigar[0].op==Ops.HARD_CLIP && new_cigar[1].op==Ops.SOFT_CLIP){
+            rec.sequence=rec.sequence[rec.cigar.ops[1].length..$];
+            rec.q_scores!false(qual[rec.cigar.ops[1].length..$]);
+            new_cigar[1]=CigarOp(new_cigar[0].length+new_cigar[1].length,Ops.HARD_CLIP);
+            rec.cigar=Cigar(new_cigar[1..$]);
         }else{
-            rec.sequence=rec.sequence[rec.cigar[0].length..$].map!(x=>x.asCharacter).array.idup;
-            rec.base_qualities=qual[rec.cigar[0].length..$];
-            new_cigar[0]=CigarOp(new_cigar[0].length,'H');
-            rec.cigar=new_cigar;
+            rec.sequence=rec.sequence[rec.cigar.ops[0].length..$];
+            rec.q_scores!false(qual[rec.cigar.ops[0].length..$]);
+            new_cigar[0]=CigarOp(new_cigar[0].length,Ops.HARD_CLIP);
+            rec.cigar=Cigar(new_cigar);
         }
     }else{
-        if(new_cigar[$-1].type=='H'&&new_cigar[$-2].type=='S'){
-            rec.sequence=rec.sequence[0..$-rec.cigar[$-2].length].map!(x=>x.asCharacter).array.idup;
-            rec.base_qualities=qual[0..$-rec.cigar[$-2].length];
-            new_cigar[$-2]=CigarOp(new_cigar[$-1].length+new_cigar[$-2].length,new_cigar[$-1].type);
-            rec.cigar=new_cigar[0..$-1];
+        if(new_cigar[$-1].op==Ops.HARD_CLIP&&new_cigar[$-2].op==Ops.SOFT_CLIP){
+            rec.sequence=rec.sequence[0..$-rec.cigar.ops[$-2].length];
+            rec.q_scores!false(qual[0..$-rec.cigar.ops[$-2].length]);
+            new_cigar[$-2]=CigarOp(new_cigar[$-1].length+new_cigar[$-2].length,Ops.HARD_CLIP);
+            rec.cigar=Cigar(new_cigar[0..$-1]);
         }else{
-            rec.sequence=rec.sequence[0..$-rec.cigar[$-1].length].map!(x=>x.asCharacter).array.idup;
-            rec.base_qualities=qual[0..$-rec.cigar[$-1].length];
-            new_cigar[$-1]=CigarOp(new_cigar[$-1].length,'H');
-            rec.cigar=new_cigar;
+            rec.sequence=rec.sequence[0..$-rec.cigar.ops[$-1].length];
+            rec.q_scores!false(qual[0..$-rec.cigar.ops[$-1].length]);
+            new_cigar[$-1]=CigarOp(new_cigar[$-1].length,Ops.HARD_CLIP);
+            rec.cigar=Cigar(new_cigar);
         }
     }
 
@@ -333,18 +345,14 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
 
 void filter(bool clip)(string[] args){
     auto bam = new SAMReader(args[1]);
-    auto out_bam=new SAMWriter(args[2]);
-    out_bam.writeSamHeader(bam.header());
-    out_bam.writeReferenceSequenceInfo(bam.reference_sequences());
+    auto out_bam=new SAMWriter(args[2],bam.header);
     //auto sc_bam= new SAMWriter("sc.bam");
     //sc_bam.writeSamHeader(bam.header());
     //sc_bam.writeReferenceSequenceInfo(bam.reference_sequences());
     //auto db_bam=new SAMWriter("db.bam");
     //db_bam.writeSamHeader(bam.header());
     //db_bam.writeReferenceSequenceInfo(bam.reference_sequences());
-    auto art_bam=new SAMWriter(args[2]~".art.bam");
-    art_bam.writeSamHeader(bam.header());
-    art_bam.writeReferenceSequenceInfo(bam.reference_sequences());
+    auto art_bam=new SAMWriter(args[2]~".art.bam",bam.header);
     //auto non_art_bam=new SAMWriter("non_art.bam");
     //non_art_bam.writeSamHeader(bam.header());
     //non_art_bam.writeReferenceSequenceInfo(bam.reference_sequences());
@@ -361,15 +369,15 @@ void filter(bool clip)(string[] args){
     int art_far;
     int art_5;
     static if(clip==true){
-        foreach(SAMRecord rec;bam.allReads()){
+        foreach(SAMRecord rec;bam.all_records()){
             read_count++;
             ReadStatus val;
             auto tag=rec["rs"];
-            if(tag.is_nothing){
-                out_bam.writeRecord(rec);
+            if(tag.data==null){
+                out_bam.write(&rec);
                 continue;
             }
-            val.raw=cast(ubyte)tag;
+            val.raw=tag.to!ubyte;
             //if(val.raw==0)
             //    continue;
             //writefln("%b",val);
@@ -384,10 +392,10 @@ void filter(bool clip)(string[] args){
             //7,far supp alignment not close to read or mate
             +/
             if(!val.art){
-                out_bam.writeRecord(rec);
+                out_bam.write(&rec);
             }else{
                 art++;
-                art_bam.writeRecord(rec);
+                art_bam.write(&rec);
                 if(val.mate){
                     aln_m++;
                 }else if(!val.far){
@@ -410,7 +418,7 @@ void filter(bool clip)(string[] args){
                     art_5++;
                 }
                 clipRead(&rec,&val);
-                out_bam.writeRecord(rec);
+                out_bam.write(&rec);
             }
             if(val.sc){
                 clipped++;
@@ -429,11 +437,11 @@ void filter(bool clip)(string[] args){
                 read_count++;
                 ReadStatus val;
                 auto tag=rec["rs"];
-                if(tag.is_nothing){
+                if(tag.data==null){
                     // out_bam.writeRecord(rec);
                     continue;
                 }
-                val.raw=cast(ubyte)tag;
+                val.raw=tag.to!ubyte;
                 //if(val.raw==0)
                 //    continue;
                 //writefln("%b",val);
@@ -481,19 +489,17 @@ void filter(bool clip)(string[] args){
             }
             if(art_found){
                 foreach(rec;grouped_reads){
-                    art_bam.writeRecord(rec);
+                    art_bam.write(&rec);
                 }
             }else{
                 foreach(rec;grouped_reads){
-                    out_bam.writeRecord(rec);
+                    out_bam.write(&rec);
                 }
             }
         }
     }
     
-    out_bam.finish();
     //sc_bam.finish();
-    art_bam.finish();
     stderr.write("read count:\t");
     stderr.writeln(read_count);
     stderr.write("Clipped %:\t");
