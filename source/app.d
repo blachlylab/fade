@@ -23,6 +23,7 @@ import std.parallelism:defaultPoolThreads;
 const(char)[16] seq_comp_table = [0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15];
 
 // extract and reverse-complement soft-clipped portion
+pragma(inline,true)
 char[] extract_soft_clip(SAMRecord * rec, int start, int end){
     ubyte * seq_ptr = (rec.b.data + (rec.b.core.n_cigar<<2) + rec.b.core.l_qname);
     char[] ret;
@@ -34,10 +35,6 @@ char[] extract_soft_clip(SAMRecord * rec, int start, int end){
     return ret;
 }
 
-unittest{
-	auto seq="ACGATGATCGATNGT".dup;
-	writeln(rc(seq));
-}
 
 /// ubyte bitflag for indicating artifact status
 union ReadStatus{
@@ -65,11 +62,15 @@ union ReadStatus{
 }
 
 /// report soft clips of a read using a cigar
+pragma(inline,true)
 CigarOp[2] parse_clips(const Cigar cigar){
     CigarOp[2] clips;
     bool first=true;
     foreach(CigarOp op;cigar.ops){
-        auto is_sc=op.is_query_consuming()&&op.is_clipping();
+        //skip hard clips
+        if(op.op==Ops.HARD_CLIP) continue;
+        auto is_sc=op.op==Ops.SOFT_CLIP;
+        // if left soft-clip
         if(first&&!is_sc){
             first=false;
         }else if(first&&is_sc){
@@ -82,6 +83,7 @@ CigarOp[2] parse_clips(const Cigar cigar){
 }
 
 //quick and dirty qscore average
+pragma(inline,true)
 ushort avg_qscore(const(char)[] q){
     ushort score=q[0];
     foreach(c;q){
@@ -225,7 +227,6 @@ void annotate(string[] args){
 	foreach(SAMRecord rec;bam.all_records){
         ReadStatus status;
 		if(rec.isMateMapped()&&rec.mateTID()!=rec.tid())
-			//read_class|=0b100_0000;
             status.mate_diff=true;
 		if(rec.mateReversed()==rec.isReversed()){
             status.same_strand=true;
@@ -239,14 +240,12 @@ void annotate(string[] args){
             out_bam.write(&rec);
             continue;
         }
-		//read_class|=0b10;
         status.sc=true;
         CigarOp[2] clips=parse_clips(rec.cigar);
         if(clips[0].length!=0){
             status.five_prime=true;
         }
 		if(!(rec["SA"].data==null)){
-			//read_class|=0b100;
             status.sup=true;
 			string[] sup=rec["SA"].toString.splitter(",").array;
 			if(sup[0]==bam.target_names[rec.tid]){
@@ -256,9 +255,7 @@ void annotate(string[] args){
 					//(strands[rec.is_reverse_strand]!=sup[2])
 				){
                     status.art=true;
-					//read_class|=0b1000;
                     status.mate=false;
-					//read_class|=0b1_0000;
                     rec["rs"]=status.raw;
                     out_bam.write(&rec);
 					continue;
@@ -270,9 +267,7 @@ void annotate(string[] args){
 					//(strands[rec.mate_is_reverse_strand]!=sup[2])
 				){
                     status.art=true;
-					//read_class|=0b1000;
                     status.mate=true;
-					//read_class|=0b10_0000;
                     rec["rs"]=status.raw;
                     out_bam.write(&rec);
 					continue;
@@ -283,10 +278,8 @@ void annotate(string[] args){
                     if((clips[0].length!=0&&sa_clips[1].length<=clips[0].length)||
                         (clips[1].length!=0&&sa_clips[0].length<=clips[1].length)){
                         status.art=true;
-                        //read_class|=0b1000;
                         status.mate=false;
                         status.far=true;
-                        //read_class|=0b10_0000;
                         rec["rs"]=status.raw;
                         out_bam.write(&rec);
                         continue;
@@ -304,10 +297,6 @@ void annotate(string[] args){
 		}
         rec["rs"]=status.raw;
         assert(rec["rs"].check!ubyte);
-		//reads[rec.name]=read_class;
-        //if(status.art){
-        //    rec["rs"]=ReadSt.rawatus;
-        //}
         out_bam.write(&rec);
 	}
 }
