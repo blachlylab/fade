@@ -14,6 +14,7 @@ import dparasail;
 import dhtslib;
 import dhtslib.htslib.sam;
 import std.parallelism:defaultPoolThreads;
+import std.math:abs;
 
 // string rc(Range)(Range seq){
 	//seq.array.reverse;
@@ -36,8 +37,16 @@ char[] extract_soft_clip(SAMRecord * rec, int start, int end){
 }
 
 
-/// ubyte bitflag for indicating artifact status
+/// ushort bitflag for clip status
 union ReadStatus{
+    ushort raw;
+    struct{
+        ClipStatus left;
+        ClipStatus right;
+    }
+}
+/// ubyte bitflag for indicating artifact status
+union ClipStatus {
     /// raw ubyte
     ubyte raw;
     //ubyte read status encoding
@@ -46,16 +55,16 @@ union ReadStatus{
         bool,"sc",1,
         //1	Read has Supp Alignment
         bool,"sup",1,
-        //2   Read is Artifact
+        //2   Supp is on opposite strand from read
+        bool,"sup_opp_strand",1,
+        //3   Sc doesn't meet qual cutoff
+        bool,"qual",1,
+        //4   Read is artifact
         bool,"art",1,
-        //3	Artifact aligns to mate region and not read
-        bool,"mate",1,
-        //4   Mate is on Diff Chrom than read
-        bool,"mate_diff",1,
-        //5	5' artifact not 3'
-        bool,"five_prime",1,
-        //6	same strand
-        bool,"same_strand",1,
+        //5	Artifact aligns to mate region and not read
+        bool,"art_mate",1,
+        //6   Artifact is greater than 5 bp long but shorter than 15 (TODO: set empirically)
+        bool,"art_short",1,
         //7 supp alignment not close to read or mate
         bool,"far",1,
     ));
@@ -94,94 +103,121 @@ ushort avg_qscore(const(char)[] q){
 }
 
 /// Align the sofclip to the read region or the mate region
-void align_clip(SAMReader * bam,IndexedFastaFile * fai,Parasail * p,SAMRecord * rec,
+string align_clip(SAMReader * bam,IndexedFastaFile * fai,Parasail * p,SAMRecord * rec,
         ReadStatus * status, uint clip_len,bool left){
     string q_seq;
     const(char)[] qual_seq;
     string ref_seq;
     float cutoff;
-    int start,end,score_read,score_mate;
-    parasail_query res;
-    if(clip_len < 6){
-        return;
+    int start,end,start_mate,end_mate;
+    parasail_query res,res_mate;
+
+    //if clip too short
+    if(clip_len <= artifact_floor_length){
+        return "";
     }
+
     //if left sofclip ? remove from left : else remove from right
     q_seq=left?extract_soft_clip(rec,0,clip_len).idup:extract_soft_clip(rec,rec.b.core.l_qseq-clip_len,rec.b.core.l_qseq).idup;
     qual_seq=left?rec.qscores!false()[0..clip_len]:rec.qscores!false()[$-clip_len..$];
-    // writeln(qual_seq);
-    if(avg_qscore(qual_seq)<20) return;
-    //set cutoff
+
+    // if quality low
+    if(avg_qscore(qual_seq)<qscore_cutoff) {
+
+        if(left) status.left.qual=true;
+        else status.right.qual=true;
+
+        return "";
+    }
+
+    //set sw score cutoff
     cutoff=q_seq.length*0.75;
 
-    start=rec.pos()-300;
+    start=rec.pos()-align_buffer_size;
+
     //if start<0: start is zero
     if(start<0){
         start=0;
     }
 
-    end=rec.pos()+rec.cigar.ref_bases_covered()+300;
+    end=rec.pos()+rec.cigar.ref_bases_covered()+align_buffer_size;
+
     //if end>length of chrom: end is length of chrom
     if(end>bam.target_lens[rec.tid]){
         end=bam.target_lens[rec.tid];
     }
+
     //get read region seq
     ref_seq=fai.fetchSequence(bam.target_names[rec.tid],start,end).toUpper;
+    
     //align
     res=p.sw_striped(q_seq,ref_seq);
-    //get read region score
-    score_read=res.result.score;
 
-    debug{
-        writeln(rec.tid()," ",start," ",end);
-        writeln(rec.queryName());
-        writeln(q_seq);
-        writeln(ref_seq);
-        writeln(score_read);
-    }
+    ClipStatus clip = left ? status.left : status.right;
 
-    res.close();
-    if(rec.isPaired()&&rec.isMateMapped()){
+    string align_string;
+    if(rec.isPaired() && rec.isMateMapped()){
+
         //rinse and repeat for mate region
-        start=rec.matePos()-300;
-        if(start<0){
-            start=0;
+        start_mate=rec.matePos()-align_buffer_size;
+        if(start_mate<0){
+            start_mate=0;
         }
-        end=rec.matePos()+300+151; //here we can't know the bases covered so estimate 151 bases
-        if(end>bam.target_lens[rec.mateTID]){
-            end=bam.target_lens[rec.mateTID];
+        //TODO: check for mate cigar to get mate region size 
+        end_mate=rec.matePos()+align_buffer_size+mate_size_est; //here we can't know the bases covered so estimate 151 bases
+        if(end_mate>bam.target_lens[rec.mateTID]){
+            end_mate=bam.target_lens[rec.mateTID];
         }
-        ref_seq=fai.fetchSequence(bam.target_names[rec.mateTID],start,end).toUpper;
-        res=p.sw_striped(q_seq,ref_seq);
-        score_mate=res.result.score;
+        ref_seq=fai.fetchSequence(bam.target_names[rec.mateTID],start_mate,end_mate).toUpper;
+        res_mate=p.sw_striped(q_seq,ref_seq);
 
-        debug{
-            writeln(rec.mateTID()," ",start," ",end);
-            writeln(rec.queryName());
-            writeln(q_seq);
-            writeln(ref_seq);
-            writeln(score_mate);
-        }
-
-        res.close();
         //choose score from alignments
-        if(score_read>cutoff||score_mate>cutoff){
-            if(score_read>=score_mate){
-                status.art=true;
-                status.mate=false;
-
+        if(res.result.score>cutoff||res_mate.result.score>cutoff){
+            if(res.result.score>=res_mate.result.score){
+                clip.art=true;
+                clip.art_mate=false;
+                align_string = bam.target_names[rec.tid]~","~
+                    (start+res.beg_ref).to!string~","~
+                    (start+res.result.end_ref).to!string~","~
+                    res.result.score.to!string;
             }else{
-                status.art=true;
-                status.mate=true;
+                clip.art=true;
+                clip.art_mate=true;
+                align_string = bam.target_names[rec.mateTID]~","~
+                    (start_mate+res_mate.beg_ref).to!string~","~
+                    (start_mate+res_mate.result.end_ref).to!string~","~
+                    res_mate.result.score.to!string;
+            }
+            if(clip_len < artifact_short_cutoff){
+                clip.art_short=true;
             }
         }
+        res_mate.close();
     }else{
-        if(score_read>cutoff){
-            status.art=true;
-            status.mate=false;
+        if(res.result.score>cutoff){
+            clip.art=true;
+            clip.art_mate=false;
+            if(clip_len < artifact_short_cutoff){
+                clip.art_short=true;
+            }
+            align_string = bam.target_names[rec.tid]~","~
+                (start+res.beg_ref).to!string~","~
+                (start+res.result.end_ref).to!string~","~
+                res.result.score.to!string;
         }
     }
+    if(left) status.left=clip;
+    else status.right=clip;
+    res.close();
+    return align_string;
 }
 
+int artifact_floor_length=5;
+int artifact_short_cutoff=15;
+int align_buffer_size=300;
+int mate_size_est=151;
+int qscore_cutoff=20;
+int sa_size_wiggle=5;
 int threads;
 
 void main(string[] args){
@@ -218,19 +254,25 @@ void annotate(string[] args){
 	auto bam = SAMReader(args[1]);
 	auto fai=IndexedFastaFile(args[2]);
 	auto out_bam=SAMWriter(args[3],bam.header);
-	//string[2] strands=["+","-"];
-
-	//ubyte[string] reads;
-    //ReadStatus[string] reads;
-
+        //0	Read is Softclipped
+        // sc
+        //1	Read has Supp Alignment
+        // sup
+        //2   Supp is on opposite strand from read
+        // sup_opp_strand
+        //3   Sc doesn't meet qual cutoff
+        // qual
+        //4   Read is artifact
+        // art
+        //5	Artifact aligns to mate region and not read
+        // art_mate
+        //6   Artifact is greater than 5 bp long but shorter than 15 (TODO: set empirically)
+        // art_short
+        //7 supp alignment not close to read or mate
+        // far
 	auto p=Parasail("ACTGN",1,-1,1,3);
 	foreach(SAMRecord rec;bam.all_records){
         ReadStatus status;
-		if(rec.isMateMapped()&&rec.mateTID()!=rec.tid())
-            status.mate_diff=true;
-		if(rec.mateReversed()==rec.isReversed()){
-            status.same_strand=true;
-        }
         if(rec.isSupplementary()||
             rec.isSecondary()||
             !rec.isMapped()||
@@ -240,63 +282,56 @@ void annotate(string[] args){
             out_bam.write(&rec);
             continue;
         }
-        status.sc=true;
         CigarOp[2] clips=parse_clips(rec.cigar);
-        if(clips[0].length!=0){
-            status.five_prime=true;
-        }
-		if(!(rec["SA"].data==null)){
-            status.sup=true;
+        if(clips[0].length!=0) status.left.sc=true;
+        if(clips[1].length!=0) status.right.sc=true;
+		if(rec["SA"].data!=null){
 			string[] sup=rec["SA"].toString.splitter(",").array;
-			if(sup[0]==bam.target_names[rec.tid]){
-				if (
-					(sup[1].to!int>rec.pos()-300)&&
-					(sup[1].to!int<rec.pos()+300)//&&
-					//(strands[rec.is_reverse_strand]!=sup[2])
-				){
-                    status.art=true;
-                    status.mate=false;
-                    rec["rs"]=status.raw;
-                    out_bam.write(&rec);
-					continue;
-				}
-			}else if(sup[0]==bam.target_names[rec.mateTID]){
-				if (
-					(sup[1].to!int>rec.matePos()-300)&&
-					(sup[1].to!int<rec.matePos()+300)//&&
-					//(strands[rec.mate_is_reverse_strand]!=sup[2])
-				){
-                    status.art=true;
-                    status.mate=true;
-                    rec["rs"]=status.raw;
-                    out_bam.write(&rec);
-					continue;
-				}
-			}else{
-                if(rec.strand()!=sup[2][0]){
-                    auto sa_clips=parse_clips(cigarFromString(sup[3]));
-                    if((clips[0].length!=0&&sa_clips[1].length<=clips[0].length)||
-                        (clips[1].length!=0&&sa_clips[0].length<=clips[1].length)){
-                        status.art=true;
-                        status.mate=false;
-                        status.far=true;
-                        rec["rs"]=status.raw;
-                        out_bam.write(&rec);
-                        continue;
+            if(sup[2][0]!=rec.strand){
+                status.left.sup_opp_strand=true;
+                status.right.sup_opp_strand=true;
+                auto sa_cigar =cigarFromString(sup[3]);
+                if(clips[0].length!=0){
+                    if(sa_cigar.ops[0].op!=Ops.SOFT_CLIP){
+                        if(abs(sa_cigar.ops[0].length-clips[0].length)<=sa_size_wiggle){
+                            status.left.sup=true;
+                            status.left.art=true;
+                            rec["rs"]=status.raw;
+                            rec["am"]=sup[0]~","~sup[1]~","~(sup[1].to!int+sa_cigar.ops[0].length).to!string~","~sa_cigar.ops[0].length.to!string~";";
+                            out_bam.write(&rec);
+                            continue;
+                        }
+                    }
+                }
+                if(clips[1].length!=0){
+                    if(sa_cigar.ops[$-1].op!=Ops.SOFT_CLIP){
+                        if(abs(sa_cigar.ops[$-1].length-clips[1].length)<=sa_size_wiggle){
+                            status.right.sup=true;
+                            status.right.art=true;
+                            rec["rs"]=status.raw;
+                            rec["am"]=";"~sup[0]~","~sup[1]~","~(sup[1].to!int+sa_cigar.ops[0].length).to!string~","~sa_cigar.ops[0].length.to!string;
+                            out_bam.write(&rec);
+                            continue;
+                        }
                     }
                 }
             }
 		}
 		//left soft-clip (left on reference not 5' neccesarily)
+        string align_str;
 		if(clips[0].length!=0){
-            align_clip(&bam,&fai,&p,&rec,&status,clips[0].length(),true);
+            align_str~=align_clip(&bam,&fai,&p,&rec,&status,clips[0].length(),true);
 		}
+        align_str~=";";
 		//right soft-clip
 		if(clips[1].length()!=0){
-            align_clip(&bam,&fai,&p,&rec,&status,clips[1].length(),false);
+            align_str~=align_clip(&bam,&fai,&p,&rec,&status,clips[1].length(),false);
 		}
+        // writeln(status.raw);
         rec["rs"]=status.raw;
+        rec["am"]=align_str;
         assert(rec["rs"].check!ubyte);
+        assert(rec["am"].check!string);
         out_bam.write(&rec);
 	}
 }
@@ -304,7 +339,7 @@ void annotate(string[] args){
 void clipRead(SAMRecord * rec,ReadStatus * status){
     auto new_cigar=rec.cigar.ops.dup;
     auto qual=rec.qscores!false();
-    if(status.five_prime){
+    if(status.left.art){
         if(new_cigar[0].op==Ops.HARD_CLIP && new_cigar[1].op==Ops.SOFT_CLIP){
             rec.sequence=rec.sequence[rec.cigar.ops[1].length..$];
             rec.q_scores!false(qual[rec.cigar.ops[1].length..$]);
@@ -316,7 +351,7 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
             new_cigar[0]=CigarOp(new_cigar[0].length,Ops.HARD_CLIP);
             rec.cigar=Cigar(new_cigar);
         }
-    }else{
+    }else if(status.right.art){
         if(new_cigar[$-1].op==Ops.HARD_CLIP&&new_cigar[$-2].op==Ops.SOFT_CLIP){
             rec.sequence=rec.sequence[0..$-rec.cigar.ops[$-2].length];
             rec.q_scores!false(qual[0..$-rec.cigar.ops[$-2].length]);
@@ -332,88 +367,90 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
 
 }
 
-void filter(bool clip)(string[] args){
-    auto bam = SAMReader(args[1]);
-    auto out_bam=SAMWriter(args[2],bam.header);
-    //auto sc_bam= SAMWriter("sc.bam");
-    //sc_bam.writeSamHeader(bam.header());
-    //sc_bam.writeReferenceSequenceInfo(bam.reference_sequences());
-    //auto db_bam=SAMWriter("db.bam");
-    //db_bam.writeSamHeader(bam.header());
-    //db_bam.writeReferenceSequenceInfo(bam.reference_sequences());
-    auto art_bam=SAMWriter(args[2]~".art.bam",bam.header);
-    //auto non_art_bam=SAMWriter("non_art.bam");
-    //non_art_bam.writeSamHeader(bam.header());
-    //non_art_bam.writeReferenceSequenceInfo(bam.reference_sequences());
+struct Stats {
     int read_count;
     int clipped;
     int sup;
+    int sup_opp;
     int art;
+    int qual;
+    int art_mate;
+    int art_short;
+
+    int aln_l;
     int aln_r;
-    int aln_m;
-    int diff_chrom;
-    int aln_r_df;
-    int aln_m_df;
-    int art_strand;
-    int art_far;
-    int art_5;
+    //0	Read is Softclipped
+    // sc
+    //1	Read has Supp Alignment
+    // sup
+    //2   Supp is on opposite strand from read
+    // sup_opp_strand
+    //3   Sc doesn't meet qual cutoff
+    // qual
+    //4   Read is artifact
+    // art
+    //5	Artifact aligns to mate region and not read
+    // art_mate
+    //6   Artifact is greater than 5 bp long but shorter than 15 (TODO: set empirically)
+    // art_short
+    //7 supp alignment not close to read or mate
+    // far
+    void parse(ReadStatus rs){
+        read_count++;
+        clipped+=(rs.left.raw|rs.right.raw)&1;
+        sup+=(rs.left.raw>>1|rs.right.raw>>1)&1;
+        sup_opp+=(rs.left.raw>>2|rs.right.raw>>2)&1;
+        qual+=(rs.left.raw>>3|rs.right.raw>>3)&1;
+        art+=(rs.left.raw>>4|rs.right.raw>>4)&1;
+        art_mate+=(rs.left.raw>>5|rs.right.raw>>5)&1;
+        art_short+=(rs.left.raw>>6|rs.right.raw>>6)&1;
+
+        aln_l+=(rs.left.raw>>4)&1;
+        aln_r+=(rs.right.raw>>4)&1;
+    }
+    void print(){
+        stderr.write("read count:\t");
+        stderr.writeln(read_count);
+        stderr.write("Clipped %:\t");
+        stderr.writeln(clipped/float(read_count));
+        stderr.write("With Supplementary alns:\t");
+        stderr.writeln(sup/float(read_count));
+        stderr.write("With Supplementary alns on opposite strand:\t");
+        stderr.writeln(sup_opp/float(read_count));
+        stderr.write("Artifact rate:\t");
+        stderr.writeln(art/float(read_count));
+        stderr.write("Artifact rate left only:\t");
+        stderr.writeln(aln_l/float(read_count));
+        stderr.write("Artifact rate right only:\t");
+        stderr.writeln(aln_r/float(read_count));
+        stderr.write("Artifact rate short (<15bp):\t");
+        stderr.writeln(art_short/float(read_count));
+        stderr.write("Artifact rate mate:\t");
+        stderr.writeln(art_mate/float(read_count));
+    }
+}
+
+void filter(bool clip)(string[] args){
+    auto bam = SAMReader(args[1]);
+    auto out_bam=SAMWriter(args[2],bam.header);
+    auto art_bam=SAMWriter(args[2]~".art.bam",bam.header);
+    Stats stats;
     static if(clip==true){
         foreach(SAMRecord rec;bam.all_records()){
-            read_count++;
             ReadStatus val;
             auto tag=rec["rs"];
             if(tag.data==null){
                 out_bam.write(&rec);
                 continue;
             }
-            val.raw=tag.to!ubyte;
-            //if(val.raw==0)
-            //    continue;
-            //writefln("%b",val);
-            /+
-            //0,sc	Read is Softclipped
-            //1,sup	Read has Supp Alignment        
-            //2,art   Read is Artifact
-            //3,mate	Artifact aligns to mate region and not read
-            //4,mate_diff   Mate is on Diff Chrom than read
-            //5,five_prime artifact not 3'
-            //6,same_strand	same strand
-            //7,far supp alignment not close to read or mate
-            +/
-            if(!val.art){
+            val.raw=tag.to!ushort;
+            stats.parse(val);
+            if(!(val.left.art | val.right.art)){
                 out_bam.write(&rec);
             }else{
-                art++;
                 art_bam.write(&rec);
-                if(val.mate){
-                    aln_m++;
-                }else if(!val.far){
-                    aln_r++;
-                }else{
-                    art_far++;
-                }
-                if(val.mate_diff){
-                    diff_chrom++;
-                    if(val.mate){
-                        aln_m_df++;
-                    }else if(!val.far){
-                        aln_r_df++;
-                    }
-                }
-                if(val.same_strand){
-                    art_strand++;
-                }
-                if(val.five_prime){
-                    art_5++;
-                }
                 clipRead(&rec,&val);
                 out_bam.write(&rec);
-            }
-            if(val.sc){
-                clipped++;
-                //sc_bam.writeRecord(rec);
-            }if(val.sup){
-                sup++;
             }
         }
     }
@@ -425,57 +462,16 @@ void filter(bool clip)(string[] args){
             auto grouped_reads=recs.array;
             bool art_found=false;
             foreach(rec;grouped_reads){
-                read_count++;
                 ReadStatus val;
                 auto tag=rec["rs"];
                 if(tag.data==null){
                     // out_bam.writeRecord(rec);
                     continue;
                 }
-                val.raw=tag.to!ubyte;
-                //if(val.raw==0)
-                //    continue;
-                //writefln("%b",val);
-                /+
-                //0,sc	Read is Softclipped
-                //1,sup	Read has Supp Alignment        
-                //2,art   Read is Artifact
-                //3,mate	Artifact aligns to mate region and not read
-                //4,mate_diff   Mate is on Diff Chrom than read
-                //5,five_prime artifact not 3'
-                //6,same_strand	same strand
-                //7,far supp alignment not close to read or mate
-                +/
-                if(val.art){
+                val.raw=tag.to!ushort;
+                stats.parse(val);
+                if(val.left.art|val.right.art){
                     art_found=true;
-                    art++;
-                    if(val.mate){
-                        aln_m++;
-                    }else if(!val.far){
-                        aln_r++;
-                    }else{
-                        art_far++;
-                    }
-                    if(val.mate_diff){
-                        diff_chrom++;
-                        if(val.mate){
-                            aln_m_df++;
-                        }else if(!val.far){
-                            aln_r_df++;
-                        }
-                    }
-                    if(val.same_strand){
-                        art_strand++;
-                    }
-                    if(val.five_prime){
-                        art_5++;
-                    }
-                }
-                if(val.sc){
-                    clipped++;
-                    //sc_bam.writeRecord(rec);
-                }if(val.sup){
-                    sup++;
                 }
             }
             if(art_found){
@@ -488,35 +484,6 @@ void filter(bool clip)(string[] args){
                 }
             }
         }
+        stats.print;
     }
-    
-    //sc_bam.finish();
-    stderr.write("read count:\t");
-    stderr.writeln(read_count);
-    stderr.write("Clipped %:\t");
-    stderr.writeln(clipped/float(read_count));
-    stderr.writeln("Of those clipped:");
-    stderr.write("\tWith Supplementary alns:\t");
-    stderr.writeln(sup/float(clipped));
-    stderr.write("\tArtifact:\t");
-    stderr.writeln(art/float(clipped));
-    stderr.writeln("Of those artifact:");
-    stderr.write("\tArtifact on 5' end:\t");
-    stderr.writeln(art_5/float(art));
-    stderr.write("\tAligned near read:\t");
-    stderr.writeln(aln_r/float(art));
-    stderr.write("\tAligned near mate:\t");
-    stderr.writeln(aln_m/float(art));
-    stderr.write("\tAligned near niether:\t");
-    stderr.writeln(art_far/float(art));
-    stderr.write("\tMate and read on same strand:\t");
-    stderr.writeln(art_strand/float(art));
-    stderr.write("\tMate and read on different chromosomes:\t");
-    stderr.writeln(diff_chrom/float(art));
-    stderr.writeln("Of those on different chromosomes:");
-    stderr.write("\tArtifact near read:\t");
-    stderr.writeln(aln_r_df/float(diff_chrom));
-    stderr.write("\tArtifact near mate:\t");
-    stderr.writeln(aln_m_df/float(diff_chrom));
-    //writeln(art_sep_chr/float(read_count));
 }
