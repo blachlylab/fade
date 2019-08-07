@@ -180,6 +180,9 @@ string align_clip(SAMReader * bam,IndexedFastaFile * fai,Parasail * p,SAMRecord 
                     (start+res.beg_ref).to!string~","~
                     (start+res.result.end_ref).to!string~","~
                     res.result.score.to!string;
+                if(clip_len < artifact_short_cutoff){
+                    clip.art_short=true;
+                }
             }else{
                 clip.art=true;
                 clip.art_mate=true;
@@ -187,9 +190,9 @@ string align_clip(SAMReader * bam,IndexedFastaFile * fai,Parasail * p,SAMRecord 
                     (start_mate+res_mate.beg_ref).to!string~","~
                     (start_mate+res_mate.result.end_ref).to!string~","~
                     res_mate.result.score.to!string;
-            }
-            if(clip_len < artifact_short_cutoff){
-                clip.art_short=true;
+                if(clip_len < artifact_short_cutoff){
+                    clip.art_short=true;
+                }
             }
         }
         res_mate.close();
@@ -247,6 +250,8 @@ void main(string[] args){
         filter!false(args[1..$]);
     }else if(args[1]=="clip"){
         filter!true(args[1..$]);
+    }else if(args[1]=="stats"){
+        statsfile(args[1..$]);
     }
 }
 
@@ -293,26 +298,22 @@ void annotate(string[] args){
                 auto sa_cigar =cigarFromString(sup[3]);
                 if(clips[0].length!=0){
                     if(sa_cigar.ops[0].op!=Ops.SOFT_CLIP){
-                        if(abs(sa_cigar.ops[0].length-clips[0].length)<=sa_size_wiggle){
-                            status.left.sup=true;
-                            status.left.art=true;
-                            rec["rs"]=status.raw;
-                            rec["am"]=sup[0]~","~sup[1]~","~(sup[1].to!int+sa_cigar.ops[0].length).to!string~","~sa_cigar.ops[0].length.to!string~";";
-                            out_bam.write(&rec);
-                            continue;
-                        }
+                        status.left.sup=true;
+                        status.left.art=true;
+                        rec["rs"]=status.raw;
+                        rec["am"]=sup[0]~","~sup[1]~","~(sup[1].to!int+sa_cigar.ops[0].length).to!string~","~sa_cigar.ops[0].length.to!string~";";
+                        out_bam.write(&rec);
+                        continue;
                     }
                 }
                 if(clips[1].length!=0){
                     if(sa_cigar.ops[$-1].op!=Ops.SOFT_CLIP){
-                        if(abs(sa_cigar.ops[$-1].length-clips[1].length)<=sa_size_wiggle){
-                            status.right.sup=true;
-                            status.right.art=true;
-                            rec["rs"]=status.raw;
-                            rec["am"]=";"~sup[0]~","~sup[1]~","~(sup[1].to!int+sa_cigar.ops[0].length).to!string~","~sa_cigar.ops[0].length.to!string;
-                            out_bam.write(&rec);
-                            continue;
-                        }
+                        status.right.sup=true;
+                        status.right.art=true;
+                        rec["rs"]=status.raw;
+                        rec["am"]=";"~sup[0]~","~sup[1]~","~(sup[1].to!int+sa_cigar.ops[0].length).to!string~","~sa_cigar.ops[0].length.to!string;
+                        out_bam.write(&rec);
+                        continue;
                     }
                 }
             }
@@ -396,17 +397,16 @@ struct Stats {
     //7 supp alignment not close to read or mate
     // far
     void parse(ReadStatus rs){
-        read_count++;
-        clipped+=(rs.left.raw|rs.right.raw)&1;
-        sup+=(rs.left.raw>>1|rs.right.raw>>1)&1;
-        sup_opp+=(rs.left.raw>>2|rs.right.raw>>2)&1;
-        qual+=(rs.left.raw>>3|rs.right.raw>>3)&1;
-        art+=(rs.left.raw>>4|rs.right.raw>>4)&1;
-        art_mate+=(rs.left.raw>>5|rs.right.raw>>5)&1;
-        art_short+=(rs.left.raw>>6|rs.right.raw>>6)&1;
+        clipped+=(rs.left.sc|rs.right.sc);
+        sup+=(rs.left.sup|rs.right.sup);
+        sup_opp+=(rs.left.sup_opp_strand|rs.right.sup_opp_strand);
+        qual+=(rs.left.qual|rs.right.qual);
+        art+=(rs.left.art|rs.right.art);
+        art_mate+=(rs.left.art_mate|rs.right.art_mate);
+        art_short+=(rs.left.art_short|rs.right.art_short);
 
-        aln_l+=(rs.left.raw>>4)&1;
-        aln_r+=(rs.right.raw>>4)&1;
+        aln_l+=rs.left.art;
+        aln_r+=rs.right.art;
     }
     void print(){
         stderr.write("read count:\t");
@@ -430,6 +430,58 @@ struct Stats {
     }
 }
 
+void statsfile(string[] args){
+    import std.array:join,split;
+    import std.format:format;
+    auto bam = SAMReader(args[1]);
+    auto outfile = File(args[2],"w");
+    auto header = ["qname","rname","pos","cigar","art_start","art_end","aln_rname","aln_start","aln_end","flagbinary","flag"];
+    outfile.writeln(header.join('\t'));
+    foreach(SAMRecord rec;bam.all_records()){
+        auto tag=rec["rs"];
+        if(tag.data==null) continue;
+        ReadStatus rs;
+        rs.raw=tag.to!ushort;
+        if(!(rs.left.art|rs.right.art)) continue;
+        tag=rec["am"];
+        if(tag.data==null) continue;
+        auto am = tag.toString;
+        auto am_split = am.split(';');
+        if(rs.left.art){
+            auto am_fields = am_split[0].split(',');
+            string[] towrite;
+            towrite~=rec.queryName.idup;
+            towrite~=bam.target_names[rec.tid];
+            towrite~=rec.pos.to!string;
+            towrite~=rec.cigar.toString;
+            towrite~=(rec.pos-rec.cigar.ops.filter!(x=>x.op==Ops.SOFT_CLIP).array[0].length).to!string;
+            towrite~=rec.pos.to!string;
+            towrite~=am_fields[0];
+            towrite~=am_fields[1];
+            towrite~=am_fields[2];
+            towrite~= format!"%08b"(rs.left.raw);
+            towrite~= rs.left.raw.to!string;
+            outfile.writeln(towrite.join("\t"));
+        }
+        if(rs.right.art){
+            auto am_fields = am_split[1].split(',');
+            string[] towrite;
+            towrite~=rec.queryName.idup;
+            towrite~=bam.target_names[rec.tid];
+            towrite~=rec.pos.to!string;
+            towrite~=rec.cigar.toString;
+            towrite~=(rec.pos+rec.cigar.ref_bases_covered).to!string;
+            towrite~=(rec.pos+rec.cigar.ref_bases_covered+rec.cigar.ops.filter!(x=>x.op==Ops.SOFT_CLIP).array[$-1].length).to!string;
+            towrite~=am_fields[0];
+            towrite~=am_fields[1];
+            towrite~=am_fields[2];
+            towrite~= format!"%08b"(rs.right.raw);
+            towrite~= rs.right.raw.to!string;
+            outfile.writeln(towrite.join("\t"));
+        }
+    }
+}
+
 void filter(bool clip)(string[] args){
     auto bam = SAMReader(args[1]);
     auto out_bam=SAMWriter(args[2],bam.header);
@@ -437,6 +489,7 @@ void filter(bool clip)(string[] args){
     Stats stats;
     static if(clip==true){
         foreach(SAMRecord rec;bam.all_records()){
+            stats.read_count++;
             ReadStatus val;
             auto tag=rec["rs"];
             if(tag.data==null){
@@ -462,6 +515,7 @@ void filter(bool clip)(string[] args){
             auto grouped_reads=recs.array;
             bool art_found=false;
             foreach(rec;grouped_reads){
+                stats.read_count++;
                 ReadStatus val;
                 auto tag=rec["rs"];
                 if(tag.data==null){
