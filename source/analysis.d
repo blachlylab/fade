@@ -85,7 +85,8 @@ string align_clip(SAMReader * bam,IndexedFastaFile * fai,Parasail * p,SAMRecord 
                 align_string = bam.target_names[rec.tid]~","~
                     (start+res.beg_ref).to!string~","~
                     (start+res.result.end_ref).to!string~","~
-                    res.result.score.to!string;
+                    res.result.score.to!string~","~
+                    res.cigar.toString;
                 if(clip_len < artifact_short_cutoff){
                     clip.art_short=true;
                 }
@@ -95,7 +96,8 @@ string align_clip(SAMReader * bam,IndexedFastaFile * fai,Parasail * p,SAMRecord 
                 align_string = bam.target_names[rec.mateTID]~","~
                     (start_mate+res_mate.beg_ref).to!string~","~
                     (start_mate+res_mate.result.end_ref).to!string~","~
-                    res_mate.result.score.to!string;
+                    res_mate.result.score.to!string~","~
+                    res.cigar.toString;
                 if(clip_len < artifact_short_cutoff){
                     clip.art_short=true;
                 }
