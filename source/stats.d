@@ -35,16 +35,9 @@ struct Stats {
     //7 supp alignment not close to read or mate
     // far
     void parse(ReadStatus rs){
-        clipped+=(rs.left.sc|rs.right.sc);
-        sup+=(rs.left.sup|rs.right.sup);
-        sup_opp+=(rs.left.sup_opp_strand|rs.right.sup_opp_strand);
-        qual+=(rs.left.qual|rs.right.qual);
-        art+=(rs.left.art|rs.right.art);
-        art_mate+=(rs.left.art_mate|rs.right.art_mate);
-        art_short+=(rs.left.art_short|rs.right.art_short);
-
-        aln_l+=rs.left.art;
-        aln_r+=rs.right.art;
+        clipped+=rs.sc;
+        art+=(rs.art_left|rs.art_right);
+        art_mate+=((rs.art_left & rs.mate_left)|(rs.art_right & rs.mate_right));
     }
     void print(){
         stderr.write("read count:\t");
@@ -79,13 +72,13 @@ void statsfile(string[] args){
         auto tag=rec["rs"];
         if(tag.data==null) continue;
         ReadStatus rs;
-        rs.raw=tag.to!ushort;
-        if(!(rs.left.art|rs.right.art)) continue;
+        rs.raw=tag.to!ubyte;
+        if(!(rs.art_left|rs.art_right)) continue;
         tag=rec["am"];
         if(tag.data==null) continue;
         auto am = tag.toString;
         auto am_split = am.split(';');
-        if(rs.left.art){
+        if(rs.art_left){
             auto am_fields = am_split[0].split(',');
             string[] towrite;
             towrite~=rec.queryName.idup;
@@ -97,11 +90,11 @@ void statsfile(string[] args){
             towrite~=am_fields[0];
             towrite~=am_fields[1];
             towrite~=am_fields[2];
-            towrite~= format!"%08b"(rs.left.raw);
-            towrite~= rs.left.raw.to!string;
+            towrite~= format!"%08b"(rs.raw);
+            towrite~= rs.raw.to!string;
             outfile.writeln(towrite.join("\t"));
         }
-        if(rs.right.art){
+        if(rs.art_right){
             auto am_fields = am_split[1].split(',');
             string[] towrite;
             towrite~=rec.queryName.idup;
@@ -113,8 +106,8 @@ void statsfile(string[] args){
             towrite~=am_fields[0];
             towrite~=am_fields[1];
             towrite~=am_fields[2];
-            towrite~= format!"%08b"(rs.right.raw);
-            towrite~= rs.right.raw.to!string;
+            towrite~= format!"%08b"(rs.raw);
+            towrite~= rs.raw.to!string;
             outfile.writeln(towrite.join("\t"));
         }
     }

@@ -11,12 +11,12 @@ const(char)[16] seq_comp_table = [0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11,
 
 // extract and reverse-complement soft-clipped portion
 pragma(inline,true)
-char[] extract_soft_clip(SAMRecord * rec, int start, int end){
+char[] reverse_complement_sam_record(SAMRecord * rec){
     ubyte * seq_ptr = (rec.b.data + (rec.b.core.n_cigar<<2) + rec.b.core.l_qname);
     char[] ret;
-    ret.length=end-start;
-    auto j = end-start-1;
-    for(int i = start;i<end;i++){
+    ret.length=rec.length;
+    auto j = rec.length-1;
+    for(int i = 0;i<rec.length;i++){
         ret[j--]=seq_nt16_str[seq_comp_table[((seq_ptr)[(i)>>1] >> ((~(i)&1)<<2) & 0xf)]];
     }
     return ret;

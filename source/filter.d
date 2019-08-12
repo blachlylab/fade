@@ -1,39 +1,103 @@
 module filter;
 import std.array:array;
+import std.algorithm.iteration:splitter;
+import std.range:drop,retro;
+import std.conv:to;
 import dhtslib;
+import dhtslib.htslib.sam;
 import readstatus;
 import stats;
+import util;
 
 
 void clipRead(SAMRecord * rec,ReadStatus * status){
     auto new_cigar=rec.cigar.ops.dup;
     auto qual=rec.qscores!false();
-    if(status.left.art){
-        if(new_cigar[0].op==Ops.HARD_CLIP && new_cigar[1].op==Ops.SOFT_CLIP){
-            rec.sequence=rec.sequence[rec.cigar.ops[1].length..$];
-            rec.q_scores!false(qual[rec.cigar.ops[1].length..$]);
-            new_cigar[1]=CigarOp(new_cigar[0].length+new_cigar[1].length,Ops.HARD_CLIP);
-            rec.cigar=Cigar(new_cigar[1..$]);
-        }else{
-            rec.sequence=rec.sequence[rec.cigar.ops[0].length..$];
-            rec.q_scores!false(qual[rec.cigar.ops[0].length..$]);
-            new_cigar[0]=CigarOp(new_cigar[0].length,Ops.HARD_CLIP);
-            rec.cigar=Cigar(new_cigar);
-        }
-    }else if(status.right.art){
-        if(new_cigar[$-1].op==Ops.HARD_CLIP&&new_cigar[$-2].op==Ops.SOFT_CLIP){
-            rec.sequence=rec.sequence[0..$-rec.cigar.ops[$-2].length];
-            rec.q_scores!false(qual[0..$-rec.cigar.ops[$-2].length]);
-            new_cigar[$-2]=CigarOp(new_cigar[$-1].length+new_cigar[$-2].length,Ops.HARD_CLIP);
-            rec.cigar=Cigar(new_cigar[0..$-1]);
-        }else{
-            rec.sequence=rec.sequence[0..$-rec.cigar.ops[$-1].length];
-            rec.q_scores!false(qual[0..$-rec.cigar.ops[$-1].length]);
-            new_cigar[$-1]=CigarOp(new_cigar[$-1].length,Ops.HARD_CLIP);
-            rec.cigar=Cigar(new_cigar);
+    if(status.art_left){
+        //get artifact cigar
+        auto art_cigar = cigarFromString((*rec)["am"].toString.splitter(";").front.splitter(",").drop(2).front);
+
+        //assert left side is soft-clipped 
+        assert(art_cigar.ops[0].op==Ops.SOFT_CLIP);
+
+        //trim sequence
+        rec.sequence=rec.sequence[art_cigar.ref_bases_covered..$];
+        rec.q_scores!false(qual[art_cigar.ref_bases_covered..$]);
+
+        if(new_cigar[0].op==Ops.HARD_CLIP) new_cigar=new_cigar[1..$];
+        assert(new_cigar[0].op==Ops.SOFT_CLIP);
+        auto overlap_len =  art_cigar.ref_bases_covered-new_cigar[0].length;
+        //remove soft clip
+        new_cigar=new_cigar[1..$];
+        while(overlap_len>0){
+            if(new_cigar[0].is_query_consuming){
+                if((new_cigar[0].length - overlap_len) > 0){
+                    new_cigar[0].length = new_cigar[0].length - overlap_len;
+                    overlap_len = 0;
+                }else{
+                    overlap_len -= new_cigar[0].length;
+                    new_cigar=new_cigar[1..$];
+                }
+            }else{
+                new_cigar=new_cigar[1..$];
+            }
+        } 
+    }
+    if(status.art_right){
+        //get artifact cigar
+        auto art_cigar = cigarFromString((*rec)["am"].toString.splitter(";").drop(1).front.splitter(",").drop(2).front);
+
+        //assert right side is soft-clipped 
+        assert(art_cigar.ops[$-1].op==Ops.SOFT_CLIP);
+
+        //trim sequence
+        rec.sequence=rec.sequence[0..$-art_cigar.ref_bases_covered];
+        rec.q_scores!false(qual[0..$-art_cigar.ref_bases_covered]);
+
+        if(new_cigar[$-1].op==Ops.HARD_CLIP) new_cigar=new_cigar[0..$-1];
+        assert(new_cigar[$-1].op==Ops.SOFT_CLIP);
+        auto overlap_len =  art_cigar.ref_bases_covered-new_cigar[$-1].length;
+        //remove soft clip
+        new_cigar=new_cigar[0..$-1];
+        while(overlap_len>0){
+            if(new_cigar[$-1].is_query_consuming){
+                if((new_cigar[$-1].length - overlap_len) > 0){
+                    new_cigar[$-1].length = new_cigar[$-1].length - overlap_len;
+                    overlap_len = 0;
+                }else{
+                    overlap_len -= new_cigar[$-1].length;
+                    new_cigar=new_cigar[0..$-1];
+                }
+            }else{
+                new_cigar=new_cigar[0..$-1];
+            }
         }
     }
+    rec.cigar=Cigar(new_cigar);
+}
 
+SAMRecord makeArtifactRecord(SAMRecord * original,bool left, bool mate){
+    auto rec =  new SAMRecord(bam_dup1(original.b));
+    rec.sequence = reverse_complement_sam_record(&rec);
+    rec.q_scores!false(cast(char[])rec.qscores!false.retro.array);
+    if(left){
+        rec.cigar=cigarFromString(rec["am"].to!string.splitter(";").front.splitter(",").drop(2).front);
+    }else{
+        rec.cigar=cigarFromString(rec["am"].to!string.splitter(";").drop(1).front.splitter(",").drop(2).front);
+    }
+    //set unpaired change strand and supplementary
+    rec.b.core.flag&=0b1111_1111_0011_1100;
+    rec.b.core.flag^=0b0000_0000_0001_0000;
+    rec.b.core.flag|=0b0000_1001_0000_0000;
+    if(mate){
+        rec.tid=rec.mateTID;
+    }
+    if(left){
+        rec.pos=rec["am"].to!string.splitter(";").front.splitter(",").drop(1).front.to!int;
+    }else{
+        rec.pos=rec["am"].to!string.splitter(";").drop(1).front.splitter(",").drop(1).front.to!int;
+    }
+    return rec;
 }
 
 void filter(bool clip)(string[] args){
@@ -50,12 +114,20 @@ void filter(bool clip)(string[] args){
                 out_bam.write(&rec);
                 continue;
             }
-            val.raw=tag.to!ushort;
+            val.raw=tag.to!ubyte;
             stats.parse(val);
-            if(!(val.left.art | val.right.art)){
+            if(!(val.art_left | val.art_right)){
                 out_bam.write(&rec);
             }else{
                 art_bam.write(&rec);
+                if(val.art_left){
+                    auto art_rec =makeArtifactRecord(&rec,val.art_left,val.mate_left);
+                    art_bam.write(&art_rec);
+                }
+                if(val.art_right){
+                    auto art_rec = makeArtifactRecord(&rec,val.art_right,val.mate_right);
+                    art_bam.write(&art_rec);
+                }
                 clipRead(&rec,&val);
                 out_bam.write(&rec);
             }
@@ -76,9 +148,9 @@ void filter(bool clip)(string[] args){
                     // out_bam.writeRecord(rec);
                     continue;
                 }
-                val.raw=tag.to!ushort;
+                val.raw=tag.to!ubyte;
                 stats.parse(val);
-                if(val.left.art|val.right.art){
+                if(val.art_left|val.art_right){
                     art_found=true;
                 }
             }
