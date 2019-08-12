@@ -74,17 +74,13 @@ string align_clip(bool left)(SAMReader * bam,string fai_f,Parasail * p,SAMRecord
                         status.mate_left=false;
                         align_string = bam.target_names[rec.tid]~","~
                             (start+res.beg_ref).to!string~","~
-                            (start+res.result.end_ref).to!string~","~
-                            res.result.score.to!string~","~
                             res.cigar.toString;
                     }else{
                         status.art_left=true;
                         status.mate_left=true;
                         align_string = bam.target_names[rec.mateTID]~","~
                             (start_mate+res_mate.beg_ref).to!string~","~
-                            (start_mate+res_mate.result.end_ref).to!string~","~
-                            res_mate.result.score.to!string~","~
-                            res.cigar.toString;
+                            res_mate.cigar.toString;
                     }
                 }
             }
@@ -97,19 +93,13 @@ string align_clip(bool left)(SAMReader * bam,string fai_f,Parasail * p,SAMRecord
                         status.mate_right=false;
                         align_string = bam.target_names[rec.tid]~","~
                             (start+res.beg_ref).to!string~","~
-                            (start+res.result.end_ref).to!string~","~
-                            clip_len.to!string~","~
-                            res.result.score.to!string~","~
                             res.cigar.toString;
                     }else{
                         status.art_right=true;
                         status.mate_right=true;
                         align_string = bam.target_names[rec.mateTID]~","~
                             (start_mate+res_mate.beg_ref).to!string~","~
-                            (start_mate+res_mate.result.end_ref).to!string~","~
-                            clip_len.to!string~","~
-                            res_mate.result.score.to!string~","~
-                            res.cigar.toString;
+                            res_mate.cigar.toString;
                     }
                 }
             }
@@ -123,8 +113,7 @@ string align_clip(bool left)(SAMReader * bam,string fai_f,Parasail * p,SAMRecord
                     status.mate_left=false;
                     align_string = bam.target_names[rec.tid]~","~
                         (start+res.beg_ref).to!string~","~
-                        (start+res.result.end_ref).to!string~","~
-                        res.result.score.to!string;
+                        res.cigar.toString;
                 }
             }
         }else{
@@ -134,8 +123,7 @@ string align_clip(bool left)(SAMReader * bam,string fai_f,Parasail * p,SAMRecord
                     status.mate_right=false;
                     align_string = bam.target_names[rec.tid]~","~
                         (start+res.beg_ref).to!string~","~
-                        (start+res.result.end_ref).to!string~","~
-                        res.result.score.to!string;
+                        res.cigar.toString;
                 }
             }
         }

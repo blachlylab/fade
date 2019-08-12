@@ -3,6 +3,7 @@ import std.array:array;
 import std.algorithm.iteration:splitter;
 import std.range:drop,retro;
 import std.conv:to;
+import std.stdio:writeln;
 import dhtslib;
 import dhtslib.htslib.sam;
 import readstatus;
@@ -15,6 +16,7 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
     auto qual=rec.qscores!false();
     if(status.art_left){
         //get artifact cigar
+        writeln((*rec)["am"].toString.splitter(";").front.splitter(",").drop(2).front);
         auto art_cigar = cigarFromString((*rec)["am"].toString.splitter(";").front.splitter(",").drop(2).front);
 
         //assert left side is soft-clipped 
@@ -79,7 +81,8 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
 SAMRecord makeArtifactRecord(SAMRecord * original,bool left, bool mate){
     auto rec =  new SAMRecord(bam_dup1(original.b));
     rec.sequence = reverse_complement_sam_record(&rec);
-    rec.q_scores!false(cast(char[])rec.qscores!false.retro.array);
+    writeln(original.queryName);
+    rec.q_scores!false(cast(char[])(cast(ubyte[])((*original).qscores!false).retro.array));
     if(left){
         rec.cigar=cigarFromString(rec["am"].to!string.splitter(";").front.splitter(",").drop(2).front);
     }else{
