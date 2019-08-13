@@ -3,7 +3,7 @@ import std.array:array;
 import std.algorithm.iteration:splitter;
 import std.range:drop,retro;
 import std.conv:to;
-import std.stdio:writeln;
+import std.stdio;
 import dhtslib;
 import dhtslib.htslib.sam;
 import readstatus;
@@ -20,7 +20,8 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
         auto art_cigar = cigarFromString((*rec)["am"].toString.splitter(";").front.splitter(",").drop(2).front);
 
         //assert left side is soft-clipped 
-        assert(art_cigar.ops[0].op==Ops.SOFT_CLIP);
+        if(art_cigar.ops[0].op!=Ops.SOFT_CLIP) return;
+        if(art_cigar.ref_bases_covered>rec.length) return;
 
         //trim sequence
         rec.sequence=rec.sequence[art_cigar.ref_bases_covered..$];
@@ -33,7 +34,7 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
         new_cigar=new_cigar[1..$];
         while(overlap_len>0){
             if(new_cigar[0].is_query_consuming){
-                if((new_cigar[0].length - overlap_len) > 0){
+                if(new_cigar[0].length >= overlap_len){
                     new_cigar[0].length = new_cigar[0].length - overlap_len;
                     overlap_len = 0;
                 }else{
@@ -43,6 +44,7 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
             }else{
                 new_cigar=new_cigar[1..$];
             }
+            if(new_cigar.length==0) break;
         } 
     }
     if(status.art_right){
@@ -50,7 +52,8 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
         auto art_cigar = cigarFromString((*rec)["am"].toString.splitter(";").drop(1).front.splitter(",").drop(2).front);
 
         //assert right side is soft-clipped 
-        assert(art_cigar.ops[$-1].op==Ops.SOFT_CLIP);
+        if(art_cigar.ops[$-1].op!=Ops.SOFT_CLIP) return;
+        if(art_cigar.ref_bases_covered>rec.length) return;
 
         //trim sequence
         rec.sequence=rec.sequence[0..$-art_cigar.ref_bases_covered];
@@ -63,7 +66,7 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
         new_cigar=new_cigar[0..$-1];
         while(overlap_len>0){
             if(new_cigar[$-1].is_query_consuming){
-                if((new_cigar[$-1].length - overlap_len) > 0){
+                if(new_cigar[$-1].length >=overlap_len){
                     new_cigar[$-1].length = new_cigar[$-1].length - overlap_len;
                     overlap_len = 0;
                 }else{
@@ -73,6 +76,7 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
             }else{
                 new_cigar=new_cigar[0..$-1];
             }
+            if(new_cigar.length==0) break;
         }
     }
     rec.cigar=Cigar(new_cigar);
@@ -82,11 +86,12 @@ SAMRecord makeArtifactRecord(SAMRecord * original,bool left, bool mate){
     auto rec =  new SAMRecord(bam_dup1(original.b));
     rec.sequence = reverse_complement_sam_record(&rec);
     writeln(original.queryName);
-    rec.q_scores!false(cast(char[])(cast(ubyte[])((*original).qscores!false).retro.array));
+    writeln(rec["am"].toString);
+    // rec.q_scores!false(cast(char[])(cast(ubyte[])((*original).qscores!false).retro.array));
     if(left){
-        rec.cigar=cigarFromString(rec["am"].to!string.splitter(";").front.splitter(",").drop(2).front);
+        rec.cigar=cigarFromString(rec["am"].toString.splitter(";").front.splitter(",").drop(2).front);
     }else{
-        rec.cigar=cigarFromString(rec["am"].to!string.splitter(";").drop(1).front.splitter(",").drop(2).front);
+        rec.cigar=cigarFromString(rec["am"].toString.splitter(";").drop(1).front.splitter(",").drop(2).front);
     }
     //set unpaired change strand and supplementary
     rec.b.core.flag&=0b1111_1111_0011_1100;
@@ -124,11 +129,11 @@ void filter(bool clip)(string[] args){
             }else{
                 art_bam.write(&rec);
                 if(val.art_left){
-                    auto art_rec =makeArtifactRecord(&rec,val.art_left,val.mate_left);
+                    auto art_rec =makeArtifactRecord(&rec,true,val.mate_left);
                     art_bam.write(&art_rec);
                 }
                 if(val.art_right){
-                    auto art_rec = makeArtifactRecord(&rec,val.art_right,val.mate_right);
+                    auto art_rec = makeArtifactRecord(&rec,false,val.mate_right);
                     art_bam.write(&art_rec);
                 }
                 clipRead(&rec,&val);
@@ -167,6 +172,6 @@ void filter(bool clip)(string[] args){
                 }
             }
         }
-        stats.print;
     }
+    stats.print;
 }

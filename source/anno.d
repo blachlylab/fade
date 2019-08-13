@@ -32,7 +32,7 @@ void annotate(string[] args){
         // art_short
         //7 supp alignment not close to read or mate
         // far
-	auto p=Parasail("ACTGN",1,-2,2,3);
+	auto p=Parasail("ACTGN",2,-2,10,1);
     auto m = new Mutex();
 	foreach(SAMRecord rec;parallel(bam.all_records)){
         ReadStatus status;
@@ -50,18 +50,22 @@ void annotate(string[] args){
         CigarOp[2] clips=parse_clips(rec.cigar);
         if(clips[0].length!=0||clips[1].length!=0) status.sc=true;
 		//left soft-clip (left on reference not 5' neccesarily)
-        string align_str;
+        string align_str,align_str2;
 		if(clips[0].length!=0){
             align_str~=align_clip!true(&bam,args[2],&p,&rec,&status,clips[0].length());
+            align_str2~=self_align!true(&bam,args[2],&p,&rec,&status,clips[0].length());
 		}
         align_str~=";";
+        align_str2~=";";
 		//right soft-clip
 		if(clips[1].length()!=0){
             align_str~=align_clip!false(&bam,args[2],&p,&rec,&status,clips[1].length());
+            align_str2~=self_align!true(&bam,args[2],&p,&rec,&status,clips[0].length());
 		}
         // writeln(status.raw);
         rec["rs"]=status.raw;
         rec["am"]=align_str;
+        rec["an"]=align_str2;
         assert(rec["rs"].check!ubyte);
         assert(rec["am"].check!string);
         m.lock;
