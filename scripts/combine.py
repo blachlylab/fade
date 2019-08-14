@@ -16,3 +16,5 @@ main.loc[other.index,"art_rpm"]=0
 main.reset_index(inplace=True)
 
 main.to_csv("master.tsv",sep="\t",index=False)
+
+main[["aln_rname","aln_start","aln_end"]].to_csv("master.bed",sep="\t",index=False,header=False)
