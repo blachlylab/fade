@@ -8,26 +8,34 @@ import readstatus;
 import util;
 import main:artifact_floor_length,artifact_short_cutoff,qscore_cutoff,align_buffer_size,mate_size_est;
 
+struct Align_Result{
+    string alignment;
+    string palindrome;
+    string stem_loop;
+    string stem_loop_rc;
+
+}
+
 /// Align the sofclip to the read region or the mate region
-string align_clip(bool left)(SAMReader * bam,string fai_f,Parasail * p,SAMRecord * rec,
+Align_Result align_clip(bool left)(SAMReader * bam,string fai_f,Parasail * p,SAMRecord * rec,
         ReadStatus * status, uint clip_len){
     string q_seq;
-    const(char)[] qual_seq;
     string ref_seq;
     float cutoff;
-    int start,end,start_mate,end_mate;
-    parasail_query res,res_mate;
+    int start,end;
+    parasail_query res;
+    Align_Result alignment;
 
     //if clip too short
     if(clip_len <= artifact_floor_length){
-        return "";
+        return alignment;
     }
 
     //if left sofclip ? remove from left : else remove from right
     q_seq=reverse_complement_sam_record(rec).idup;
 
     //set sw score cutoff
-    cutoff= clip_len*0.9;
+    cutoff= clip_len*0.9*2;
 
     start=rec.pos()-align_buffer_size;
 
@@ -50,86 +58,50 @@ string align_clip(bool left)(SAMReader * bam,string fai_f,Parasail * p,SAMRecord
     res=p.sw_striped(q_seq,ref_seq);
 
     // ClipStatus clip = left ? status.left : status.right;
-    string align_string;
     
-    // if(rec.isPaired() && rec.isMateMapped()){
-    //     //rinse and repeat for mate region
-    //     start_mate=rec.matePos()-align_buffer_size;
-    //     if(start_mate<0){
-    //         start_mate=0;
-    //     }
-    //     //TODO: check for mate cigar to get mate region size 
-    //     end_mate=rec.matePos()+align_buffer_size+mate_size_est; //here we can't know the bases covered so estimate 151 bases
-    //     if(end_mate>bam.target_lens[rec.mateTID]){
-    //         end_mate=bam.target_lens[rec.mateTID];
-    //     }
-    //     ref_seq=fai.fetchSequence(bam.target_names[rec.mateTID],start_mate,end_mate).toUpper;
-    //     res_mate=p.sw_striped(q_seq,ref_seq);
-    //     static if(left){
-    //         if(res.cigar.ops[$-1].op==Ops.EQUAL||res_mate.cigar.ops[$-1].op==Ops.EQUAL){
-    //             //choose score from alignments
-    //             if(res.result.score>cutoff||res_mate.result.score>cutoff){
-    //                 if(res.result.score>=res_mate.result.score){
-    //                     status.art_left=true;
-    //                     status.mate_left=false;
-    //                     align_string = bam.target_names[rec.tid]~","~
-    //                         (start+res.beg_ref).to!string~","~
-    //                         res.cigar.toString;
-    //                 }else{
-    //                     status.art_left=true;
-    //                     status.mate_left=true;
-    //                     align_string = bam.target_names[rec.mateTID]~","~
-    //                         (start_mate+res_mate.beg_ref).to!string~","~
-    //                         res_mate.cigar.toString;
-    //                 }
-    //             }
-    //         }
-    //     }else{
-    //         if(res.cigar.ops[0].op==Ops.EQUAL||res_mate.cigar.ops[0].op==Ops.EQUAL){
-    //             //choose score from alignments
-    //             if(res.result.score>cutoff||res_mate.result.score>cutoff){
-    //                 if(res.result.score>=res_mate.result.score){
-    //                     status.art_right=true;
-    //                     status.mate_right=false;
-    //                     align_string = bam.target_names[rec.tid]~","~
-    //                         (start+res.beg_ref).to!string~","~
-    //                         res.cigar.toString;
-    //                 }else{
-    //                     status.art_right=true;
-    //                     status.mate_right=true;
-    //                     align_string = bam.target_names[rec.mateTID]~","~
-    //                         (start_mate+res_mate.beg_ref).to!string~","~
-    //                         res_mate.cigar.toString;
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     res_mate.close();
-    // }else{
-        static if(left){
-            if(res.cigar.ops[$-1].op==Ops.EQUAL){
-                if(res.result.score>cutoff){
-                    status.art_left=true;
-                    status.mate_left=false;
-                    align_string = bam.target_names[rec.tid]~","~
-                        (start+res.beg_ref).to!string~","~
-                        res.cigar.toString;
-                }
-            }
-        }else{
-            if(res.cigar.ops[0].op==Ops.EQUAL){
-                if(res.result.score>cutoff){
-                    status.art_right=true;
-                    status.mate_right=false;
-                    align_string = bam.target_names[rec.tid]~","~
-                        (start+res.beg_ref).to!string~","~
-                        res.cigar.toString;
-                }
+    static if(left){
+        if(res.cigar.ops[$-1].op==Ops.EQUAL){
+            if(res.result.score>cutoff){
+                auto clips=parse_clips(res.cigar);
+                if(clips[1].length!=0 || clips[0].length==0) return alignment;
+
+                status.art_left=true;
+                status.mate_left=false;
+                alignment.alignment = bam.target_names[rec.tid]~","~
+                    (start+res.beg_ref).to!string~","~
+                    res.cigar.toString;
+                auto overlap = start+res.beg_ref>=rec.pos - clip_len ? start+res.beg_ref - (rec.pos -clip_len) : 0;
+                auto plen=(rec.length-clips[0].length)+(overlap);
+                plen = plen > rec.length ? rec.length : plen;
+                alignment.stem_loop = rec.sequence[0..plen].idup;
+                alignment.stem_loop_rc = q_seq[$-plen..$];
+                alignment.palindrome = q_seq[clips[0].length..$];
             }
         }
-    // }
+    }else{
+        if(res.cigar.ops[0].op==Ops.EQUAL){
+            if(res.result.score>cutoff){
+                auto clips=parse_clips(res.cigar);
+                if(clips[0].length!=0 || clips[1].length==0) return alignment;
+
+                status.art_right=true;
+                status.mate_right=false;
+                alignment.alignment = bam.target_names[rec.tid]~","~
+                    (start+res.beg_ref).to!string~","~
+                    res.cigar.toString;
+                auto overlap = rec.pos + rec.cigar.ref_bases_covered + clip_len >= start+res.beg_ref + res.cigar.ref_bases_covered 
+                                ? (rec.pos + rec.cigar.ref_bases_covered + clip_len) - (start+res.beg_ref + res.cigar.ref_bases_covered) : 0;
+                auto plen=(rec.length-clips[1].length)+(overlap);
+                plen = plen > rec.length ? rec.length : plen;
+                alignment.stem_loop = rec.sequence[$-plen..$].idup;
+                alignment.stem_loop_rc = q_seq[0..plen];
+                alignment.palindrome = q_seq[0..$-clips[1].length];
+            }
+        }
+    }
+
     res.close();
-    return align_string;
+    return alignment;
 }
 
 /// Align the sofclip to the read region or the mate region

@@ -2,6 +2,8 @@ module stats;
 import std.stdio;
 import std.algorithm:filter;
 import std.array:array;
+import std.range:drop;
+import std.algorithm.iteration:splitter;
 import std.conv:to;
 import readstatus;
 import dhtslib;
@@ -66,7 +68,7 @@ void statsfile(string[] args){
     import std.format:format;
     auto bam = SAMReader(args[1]);
     auto outfile = File(args[2],"w");
-    auto header = ["qname","rname","pos","cigar","art_start","art_end","aln_rname","aln_start","aln_end","flagbinary","flag"];
+    auto header = ["qname","rname","pos","cigar","art_start","art_end","aln_rname","aln_start","aln_end","art_cigar","stemloop","stemloop_rc","pseq","flagbinary","flag"];
     outfile.writeln(header.join('\t'));
     foreach(SAMRecord rec;bam.all_records()){
         auto tag=rec["rs"];
@@ -85,11 +87,15 @@ void statsfile(string[] args){
             towrite~=bam.target_names[rec.tid];
             towrite~=rec.pos.to!string;
             towrite~=rec.cigar.toString;
-            towrite~=(rec.pos-rec.cigar.ops.filter!(x=>x.op==Ops.SOFT_CLIP).array[0].length).to!string;
+            towrite~=(rec.pos-rec.cigar.ops.filter!(x=>x.op==Ops.SOFT_CLIP).front.length).to!string;
             towrite~=rec.pos.to!string;
             towrite~=am_fields[0];
             towrite~=am_fields[1];
+            towrite~=(am_fields[1].to!int+cigarFromString(am_fields[2]).ref_bases_covered).to!string;
             towrite~=am_fields[2];
+            towrite~=rec["as"].toString.splitter(";").front;
+            towrite~=rec["ar"].toString.splitter(";").front;
+            towrite~=rec["ap"].toString.splitter(";").front;
             towrite~= format!"%08b"(rs.raw);
             towrite~= rs.raw.to!string;
             outfile.writeln(towrite.join("\t"));
@@ -105,7 +111,11 @@ void statsfile(string[] args){
             towrite~=(rec.pos+rec.cigar.ref_bases_covered+rec.cigar.ops.filter!(x=>x.op==Ops.SOFT_CLIP).array[$-1].length).to!string;
             towrite~=am_fields[0];
             towrite~=am_fields[1];
+            towrite~=(am_fields[1].to!int+cigarFromString(am_fields[2]).ref_bases_covered).to!string;
             towrite~=am_fields[2];
+            towrite~=rec["as"].toString.splitter(";").drop(1).front;
+            towrite~=rec["ar"].toString.splitter(";").drop(1).front;
+            towrite~=rec["ap"].toString.splitter(";").drop(1).front;
             towrite~= format!"%08b"(rs.raw);
             towrite~= rs.raw.to!string;
             outfile.writeln(towrite.join("\t"));

@@ -16,19 +16,23 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
     auto qual=rec.qscores!false();
     if(status.art_left){
         //get artifact cigar
-        writeln((*rec)["am"].toString.splitter(";").front.splitter(",").drop(2).front);
+        // writeln((*rec)["am"].toString.splitter(";").front.splitter(",").drop(2).front);
         auto art_cigar = cigarFromString((*rec)["am"].toString.splitter(";").front.splitter(",").drop(2).front);
 
         //assert left side is soft-clipped 
         if(art_cigar.ops[0].op!=Ops.SOFT_CLIP) return;
         if(art_cigar.ref_bases_covered>rec.length) return;
 
+        if(new_cigar[0].op==Ops.HARD_CLIP) new_cigar=new_cigar[1..$];
+        assert(new_cigar[0].op==Ops.SOFT_CLIP);
+
+        rec.b.core.pos+=art_cigar.ref_bases_covered - new_cigar[0].length;
+
         //trim sequence
         rec.sequence=rec.sequence[art_cigar.ref_bases_covered..$];
         rec.q_scores!false(qual[art_cigar.ref_bases_covered..$]);
 
-        if(new_cigar[0].op==Ops.HARD_CLIP) new_cigar=new_cigar[1..$];
-        assert(new_cigar[0].op==Ops.SOFT_CLIP);
+        
         auto overlap_len =  art_cigar.ref_bases_covered-new_cigar[0].length;
         //remove soft clip
         new_cigar=new_cigar[1..$];
@@ -85,8 +89,8 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
 SAMRecord makeArtifactRecord(SAMRecord * original,bool left, bool mate){
     auto rec =  new SAMRecord(bam_dup1(original.b));
     rec.sequence = reverse_complement_sam_record(&rec);
-    writeln(original.queryName);
-    writeln(rec["am"].toString);
+    // writeln(original.queryName);
+    // writeln(rec["am"].toString);
     // rec.q_scores!false(cast(char[])(cast(ubyte[])((*original).qscores!false).retro.array));
     if(left){
         rec.cigar=cigarFromString(rec["am"].toString.splitter(";").front.splitter(",").drop(2).front);
