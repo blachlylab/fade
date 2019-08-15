@@ -12,7 +12,7 @@ struct Stats {
     int read_count;
     int clipped;
     int sup;
-    int sup_opp;
+    int art_sup;
     int art;
     int qual;
     int art_mate;
@@ -39,27 +39,27 @@ struct Stats {
     void parse(ReadStatus rs){
         clipped+=rs.sc;
         art+=(rs.art_left|rs.art_right);
+        sup+=rs.sup;
+        art_sup+=(rs.art_left|rs.art_right) & rs.sup;
         art_mate+=((rs.art_left & rs.mate_left)|(rs.art_right & rs.mate_right));
+        aln_l+=rs.art_left;
+        aln_r+=rs.art_right;
     }
     void print(){
         stderr.write("read count:\t");
         stderr.writeln(read_count);
         stderr.write("Clipped %:\t");
         stderr.writeln(clipped/float(read_count));
-        stderr.write("With Supplementary alns:\t");
+        stderr.write("% With Supplementary alns:\t");
         stderr.writeln(sup/float(read_count));
-        stderr.write("With Supplementary alns on opposite strand:\t");
-        stderr.writeln(sup_opp/float(read_count));
         stderr.write("Artifact rate:\t");
         stderr.writeln(art/float(read_count));
+        stderr.write("% With Supplementary alns and artifacts:\t");
+        stderr.writeln(art_sup/float(read_count));
         stderr.write("Artifact rate left only:\t");
         stderr.writeln(aln_l/float(read_count));
         stderr.write("Artifact rate right only:\t");
         stderr.writeln(aln_r/float(read_count));
-        stderr.write("Artifact rate short (<15bp):\t");
-        stderr.writeln(art_short/float(read_count));
-        stderr.write("Artifact rate mate:\t");
-        stderr.writeln(art_mate/float(read_count));
     }
 }
 

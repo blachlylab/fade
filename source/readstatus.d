@@ -15,10 +15,10 @@ union ReadStatus{
         bool,"mate_left",1,
         //4   Right Artifact aligns to mate region and not read
         bool,"mate_right",1,
+        //5	read has supplementary alignment
+        bool,"sup",1,
         
         //filler
-        //5	Artifact aligns to mate region and not read
-        bool,"f1",1,
         //6   Artifact is greater than 5 bp long but shorter than 15 (TODO: set empirically)
         bool,"f2",1,
         //7 supp alignment not close to read or mate
