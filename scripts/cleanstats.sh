@@ -1,5 +1,5 @@
-awk 'BEGIN{OFS="\t"}{print $2,$5,$6,$1}' test.out > read_targets.bed
-awk 'BEGIN{OFS="\t"}{print $7,$8,$9,$1}' test.out > artifact_targets.bed
+awk 'BEGIN{OFS="\t"}{print $2,$5,$6,$1}' $1 > read_targets.bed
+awk 'BEGIN{OFS="\t"}{print $7,$8,$9,$1}' $1 > artifact_targets.bed
 sed -i '1d' read_targets.bed
 sed -i '1d' artifact_targets.bed
 bedtools sort -i read_targets.bed > read_targets.sorted.bed

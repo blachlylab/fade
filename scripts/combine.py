@@ -1,6 +1,7 @@
 import pandas as pd
+import sys
 
-main=pd.read_csv("test.out",delimiter="\t")
+main=pd.read_csv(sys.argv[1],delimiter="\t")
 other=pd.read_csv("read_targets.nrp.bed",delimiter="\t",header=None,names=["rname","art_start","art_end","qname"])
 main.set_index(["qname","rname","art_start"],inplace=True)
 other.set_index(["qname","rname","art_start"],inplace=True)
