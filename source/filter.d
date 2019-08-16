@@ -97,10 +97,10 @@ SAMRecord makeArtifactRecord(SAMRecord * original,bool left, bool mate){
     }else{
         rec.cigar=cigarFromString(rec["am"].toString.splitter(";").drop(1).front.splitter(",").drop(2).front);
     }
-    //set unpaired change strand and supplementary
+    //set unpaired, change strand, and supplementary
     rec.b.core.flag&=0b1111_1111_0011_1100;
     rec.b.core.flag^=0b0000_0000_0001_0000;
-    rec.b.core.flag|=0b0000_1001_0000_0000;
+    rec.b.core.flag|=0b0000_1000_0000_0000;
     if(mate){
         rec.tid=rec.mateTID;
     }
