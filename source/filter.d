@@ -64,8 +64,16 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
         auto art_cigar = cigarFromString((*rec)["am"].toString.splitter(";").drop(1).front.splitter(",").drop(2).front);
 
         //assert right side is soft-clipped 
-        if(art_cigar.ops[$-1].op!=Ops.SOFT_CLIP) return;
-        if(art_cigar.ref_bases_covered>rec.length) return;
+        if(art_cigar.ops[$-1].op!=Ops.SOFT_CLIP) {
+            writeln((*rec)["am"]);
+            debug assert(false);
+            else return;
+        }
+        if(art_cigar.ref_bases_covered>rec.length) {
+            writeln((*rec)["am"]);
+            debug assert(false);
+            else return;
+        }
 
         //trim sequence
         rec.sequence=rec.sequence[0..$-art_cigar.ref_bases_covered];
