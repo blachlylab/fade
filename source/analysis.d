@@ -58,6 +58,7 @@ Align_Result align_clip(bool left)(SAMReader * bam,string fai_f,Parasail * p,SAM
     res=p.sw_striped(q_seq,ref_seq);
 
     // ClipStatus clip = left ? status.left : status.right;
+    if((res.cigar.ops.length==0) | (res.cigar.ops.length>10)) return "";
     
     static if(left){
         if(res.cigar.ops[$-1].op==Ops.EQUAL){
