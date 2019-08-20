@@ -32,7 +32,7 @@ void annotate(string[] args){
         // art_short
         //7 supp alignment not close to read or mate
         // far
-	auto p=Parasail("ACTGN",2,-2,10,1);
+	auto p=Parasail("ACTGN",2,-3,10,2);
     auto m = new Mutex();
 	foreach(SAMRecord rec;parallel(bam.all_records)){
         ReadStatus status;
