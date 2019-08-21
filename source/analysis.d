@@ -56,7 +56,7 @@ Align_Result align_clip(bool left)(SAMReader * bam,string fai_f,Parasail * p,SAM
     
     //align
     res=p.sw_striped(q_seq,ref_seq);
-
+    scope(exit) res.close();
     // ClipStatus clip = left ? status.left : status.right;
     if((res.cigar.ops.length==0) | (res.cigar.ops.length>10)) return alignment;
 
@@ -101,7 +101,7 @@ Align_Result align_clip(bool left)(SAMReader * bam,string fai_f,Parasail * p,SAM
         }
     }
 
-    res.close();
+    // res.close();
     return alignment;
 }
 
