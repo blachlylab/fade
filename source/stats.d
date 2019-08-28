@@ -68,7 +68,7 @@ void statsfile(string[] args){
     import std.format:format;
     auto bam = SAMReader(args[1]);
     auto outfile = File(args[2],"w");
-    auto header = ["qname","rname","pos","cigar","art_start","art_end","aln_rname","aln_start","aln_end","art_cigar","stemloop","stemloop_rc","pseq","flagbinary","flag"];
+    auto header = ["qname","rname","pos","cigar","art_start","art_end","aln_rname","aln_start","aln_end","art_cigar","stemloop","stemloop_rc","pseq","flagbinary","flag","strand"];
     outfile.writeln(header.join('\t'));
     foreach(SAMRecord rec;bam.all_records()){
         auto tag=rec["rs"];
@@ -98,6 +98,9 @@ void statsfile(string[] args){
             towrite~=rec["ap"].toString.splitter(";").front;
             towrite~= format!"%08b"(rs.raw);
             towrite~= rs.raw.to!string;
+            // this is reverse of the normal strand function as the artifact
+            // is always on the opposite strand as the read
+            towrite~= ["-","+"][rec.isReversed()];
             outfile.writeln(towrite.join("\t"));
         }
         if(rs.art_right){
@@ -118,6 +121,9 @@ void statsfile(string[] args){
             towrite~=rec["ap"].toString.splitter(";").drop(1).front;
             towrite~= format!"%08b"(rs.raw);
             towrite~= rs.raw.to!string;
+            // this is reverse of the normal strand function as the artifact
+            // is always on the opposite strand as the read
+            towrite~= ["-","+"][rec.isReversed()];
             outfile.writeln(towrite.join("\t"));
         }
     }
