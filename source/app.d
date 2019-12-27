@@ -16,6 +16,17 @@ int qscore_cutoff=20;
 int threads;
 
 void main(string[] args){
+    if(args.length==1){
+        auto res=getopt(args,config.bundling);
+        defaultGetoptPrinter(
+            "Fragmentase Artifact Detection and Elimination\n"~
+            "usage: ./fade [subcommand]\n"~
+            "\tannotate: marks artifact reads in bam tags (must be done first)\n"~
+            "\tfilter: removes fragments (read and mate) with artifact (requires queryname sorted bam)\n"~
+            "\tclip: removes artifact region (soft-clipped) only", res.options);
+        stderr.writeln();
+        return;
+    }
     if(args[1]=="annotate"){
         auto res=getopt(args,config.bundling,
         "threads|t","threads for parsing the bam file",&threads,
@@ -24,67 +35,72 @@ void main(string[] args){
         "window-size|w","Number of bases considered outside of read or mate region for re-alignment",&align_buffer_size,
         "q-score|q","Minimum average base-quality score of a soft-clip to be considered an artifact",&qscore_cutoff,
         "mate-est|m","Read Mate size estimate in bases",&mate_size_est);
-        if (res.helpWanted) {
+        if (res.helpWanted | (args.length < 3)) {
             defaultGetoptPrinter(
+                "Fragmentase Artifact Detection and Elimination\n"~
                 "annotate: performs re-alignment of soft-clips and annotates bam records with bitflag (rs) and realignment tags (am)", res.options);
             stderr.writeln();
             return;
         }
         if(threads!=0){
-			defaultPoolThreads(threads);
-		}
+            defaultPoolThreads(threads);
+        }
         annotate(args[1..$]);
     }else if(args[1]=="filter"){
         auto res=getopt(args,config.bundling,
         "threads|t","threads for parsing the bam file",&threads);
-        if (res.helpWanted) {
+        if (res.helpWanted | (args.length < 3)) {
             defaultGetoptPrinter(
+                "Fragmentase Artifact Detection and Elimination\n"~
                 "filter: removes all read and mates for reads contain the artifact (used after annotate and requires queryname sorted bam)", res.options);
             stderr.writeln();
             return;
         }
         if(threads!=0){
-			defaultPoolThreads(threads);
-		}
+            defaultPoolThreads(threads);
+        }
         filter!false(args[1..$]);
     }else if(args[1]=="clip"){
         auto res=getopt(args,config.bundling,
         "threads|t","threads for parsing the bam file",&threads);
-        if (res.helpWanted) {
+        if (res.helpWanted | (args.length < 3)) {
             defaultGetoptPrinter(
+                "Fragmentase Artifact Detection and Elimination\n"~
                 "clip: removes soft-clips from reads that contain the artifact (used after annotate)", res.options);
             stderr.writeln();
             return;
         }
         if(threads!=0){
-			defaultPoolThreads(threads);
-		}
+            defaultPoolThreads(threads);
+        }
         filter!true(args[1..$]);
     }else if(args[1]=="stats"){
         auto res=getopt(args,config.bundling,
         "threads|t","threads for parsing the bam file",&threads);
-        if (res.helpWanted) {
+        if (res.helpWanted | (args.length < 3)) {
             defaultGetoptPrinter(
+                "Fragmentase Artifact Detection and Elimination\n"~
                 "stats: reports information about artifact reads (used after annotate)", res.options);
             stderr.writeln();
             return;
         }
         if(threads!=0){
-			defaultPoolThreads(threads);
-		}
+            defaultPoolThreads(threads);
+        }
         statsfile(args[1..$]);
+    }else{
+        auto res=getopt(args,config.bundling);
+        if (res.helpWanted | (args.length < 2)) {
+            defaultGetoptPrinter(
+                "Fragmentase Artifact Detection and Elimination\n"~
+                "usage: ./fade [subcommand]\n"~
+                "\tannotate: marks artifact reads in bam tags (must be done first)\n"~
+                "\tfilter: removes fragments (read and mate) with artifact (requires queryname sorted bam)\n"~
+                "\tclip: removes artifact region (soft-clipped) only", res.options);
+            stderr.writeln();
+            return;
+        }
     }
-    auto res=getopt(args,config.bundling);
-    if (res.helpWanted) {
-		defaultGetoptPrinter(
-            "Fragmentase Artifact Detection and Elimination\n"~
-            "usage: ./fade [subcommand]\n"~
-            "annotate: marks artifact reads in bam tags (must be done first)\n"~
-            "filter: removes fragments (read and mate) with artifact (requires queryname sorted bam)\n"~
-            "clip: removes artifact region (soft-clipped) only", res.options);
-		stderr.writeln();
-		return;
-	}
 }
 
 
