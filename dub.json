@@ -9,9 +9,7 @@
 		"dparasail":{
 			"path":"dparasail"
 		},
-		"dhtslib":{
-			"path":"dhtslib"
-		}
+		"dhtslib":"~>0.10.1"
 	},
 	"configurations":[
 	{
