@@ -1,4 +1,4 @@
-![alt text](https://github.com/blachlylab/fade/raw/master/fade_logo/logo.png "FADE")
+![alt text](https://github.com/blachlylab/fade/raw/master/logo/fade_logo.png "FADE")
 
 # **F**ragmentase **A**rtifact **D**etection and **E**limination
 
