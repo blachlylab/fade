@@ -12,15 +12,9 @@
 		"dhtslib":"~>0.10.1"
 	},
 	"configurations":[
-	{
-		"name":"shared",
-		"targetType": "executable"
-	},{
-		"name":"static",
-		"targetType": "executable",
-		"subConfigurations": {
-			"dhtslib":"source-static"
+		{
+			"name":"shared",
+			"targetType": "executable"
 		}
-	}
-]
+	]
 }

@@ -24,7 +24,7 @@ dub build -b release
 ```
 ./fade annotate sam1.bam ref.fa sam1.anno.bam
 samtools sort -n sam1.anno.bam > sam1.anno.qsort.bam #recommended but not neccessary
-./fade filter sam1.anno.qsort.bam sam1.filtered.bam
+./fade out sam1.anno.qsort.bam sam1.filtered.bam
 ```
 
 ## Algorithm

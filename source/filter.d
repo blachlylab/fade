@@ -128,17 +128,17 @@ SAMRecord makeArtifactRecord(SAMRecord * original,bool left, bool mate){
     return rec;
 }
 
-void filter(bool clip)(string[] args){
+void filter(bool clip,bool art)(string[] args,string artbam_filename){
     auto bam = SAMReader(args[1]);
     auto out_bam=SAMWriter(args[2],bam.header);
-    auto art_bam=SAMWriter(args[2]~".art.bam",bam.header);
+    static if (art) auto art_bam=SAMWriter(artbam_filename,bam.header);
     Stats stats;
     static if(clip==true){
         foreach(SAMRecord rec;bam.all_records()){
             stats.read_count++;
             ReadStatus val;
             auto tag=rec["rs"];
-            if(tag.data==null){
+            if(tag.exists){
                 out_bam.write(&rec);
                 continue;
             }
@@ -147,14 +147,14 @@ void filter(bool clip)(string[] args){
             if(!(val.art_left | val.art_right)){
                 out_bam.write(&rec);
             }else{
-                art_bam.write(&rec);
+                static if (art) art_bam.write(&rec);
                 if(val.art_left){
                     auto art_rec =makeArtifactRecord(&rec,true,val.mate_left);
-                    art_bam.write(&art_rec);
+                    static if (art) art_bam.write(&art_rec);
                 }
                 if(val.art_right){
                     auto art_rec = makeArtifactRecord(&rec,false,val.mate_right);
-                    art_bam.write(&art_rec);
+                    static if (art) art_bam.write(&art_rec);
                 }
                 clipRead(&rec,&val);
                 out_bam.write(&rec);
@@ -172,7 +172,7 @@ void filter(bool clip)(string[] args){
                 stats.read_count++;
                 ReadStatus val;
                 auto tag=rec["rs"];
-                if(tag.data==null){
+                if(tag.exists){
                     // out_bam.writeRecord(rec);
                     continue;
                 }
@@ -184,7 +184,7 @@ void filter(bool clip)(string[] args){
             }
             if(art_found){
                 foreach(rec;grouped_reads){
-                    art_bam.write(&rec);
+                    static if (art) art_bam.write(&rec);
                 }
             }else{
                 foreach(rec;grouped_reads){

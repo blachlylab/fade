@@ -49,7 +49,7 @@ void annotate(string[] args){
         }
         CigarOp[2] clips=parse_clips(rec.cigar);
         if(clips[0].length!=0||clips[1].length!=0) status.sc=true;
-        if(rec["SA"].data!=null) status.sup=true;
+        if(!rec["SA"].exists) status.sup=true;
 		//left soft-clip (left on reference not 5' neccesarily)
         Align_Result align_1,align_2;
 		if(clips[0].length!=0){
