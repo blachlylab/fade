@@ -1,6 +1,3 @@
 [submodule "dparasail"]
 	path = dparasail
 	url = https://github.com/blachlylab/dparasail.git
-[submodule "dhtslib"]
-	path = dhtslib
-	url = https://github.com/blachlylab/dhtslib.git
