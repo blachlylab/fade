@@ -4,13 +4,11 @@
 
 DNA shearing is a crucial first step in most NGS protocols for Illumina. Enzymatic fragmentation has shown in recent years to be a cost and time effective alternative to physical shearing (i.e. sonication). We discovered that enzymatic fragmentation leads to unexpected alteration of the original DNA source material. We provide fade as a method of identification and removal of enymatic fragmentation artifacts.
 
-## Quick Start
+## Installation
 
-### Installation
+### Bioconda
 
-#### Bioconda
-
-#### Manual
+### Manual
 Install [htslib](http://www.htslib.org/download/) and [parasail](https://github.com/jeffdaily/parasail#compiling-and-installing) and download a binary fade release.
 
 Or build from source (requires dub and a D compiler):
@@ -30,6 +28,39 @@ samtools sort -n sam1.anno.bam > sam1.anno.qsort.bam #recommended but not necces
 fade out sam1.anno.qsort.bam sam1.filtered.bam
 ```
 
+## Program Details
+
+### Command-line parameters
+
+fade
+```
+Fragmentase Artifact Detection and Elimination
+usage: ./fade [subcommand]
+        annotate: marks artifact reads in bam tags (must be done first)
+        out: eliminates artifact from reads(may require queryname sorted bam)
+-h --help This help information.
+```
+fade annotate
+```
+Fragmentase Artifact Detection and Elimination
+annotate: performs re-alignment of soft-clips and annotates bam records with bitflag (rs) and realignment tags (am)
+-t      --threads threads for parsing the bam file
+     --min-length Minimum number of bases for a soft-clip to be considered for artifact detection
+   --short-length Minimum number of bases for a soft-clip to not be considered short
+-w  --window-size Number of bases considered outside of read or mate region for re-alignment
+-q      --q-score Minimum average base-quality score of a soft-clip to be considered an artifact
+-m     --mate-est Read Mate size estimate in bases
+-h         --help This help information.
+```
+fade out
+```
+Fragmentase Artifact Detection and Elimination
+out: removes all read and mates for reads contain the artifact (used after annotate and requires queryname sorted bam) or, with the -c flag, hard clips out artifact sequence from reads
+-c         --clip clip reads instead of filtering them
+-t      --threads threads for parsing the bam file
+-a --artifact-bam filename to extract artifact reads to (BAM/SAM)
+-h         --help This help information.
+```
 ### BAM tags
 FADE uses BAM/SAM tags to annotate artifact reads. These tags are then used to identify and remove/clip reads.
 
@@ -52,9 +83,7 @@ i.e.   chr1,20,120S20M;chr1,120,15M120S
 
 #### as, ap, and ar tags
 As described in our manuscript we describe an expected stem loop structure:
-rec["as"]=align_1.stem_loop~";"~align_2.stem_loop;
-rec["ar"]=align_1.stem_loop_rc~";"~align_2.stem_loop_rc;
-rec["ap"]=align_1.palindrome~";"~align_2.palindrome;
+
 
 ## Algorithm
 FADE is written in D and uses the [htslib](http://www.htslib.org/download/) library via [dhtslib](https://github.com/blachlylab/dhtslib.git), and the [parasail](https://github.com/jeffdaily/parasail) library via [dparasail](https://github.com/blachlylab/dparasail). FADE accepts SAM/BAM/CRAM files containing reads that have been mapped to a reference genome and filters or cleans up artifact-containing reads according to the following procedure. 
