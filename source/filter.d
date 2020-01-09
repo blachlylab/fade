@@ -128,9 +128,9 @@ SAMRecord makeArtifactRecord(SAMRecord * original,bool left, bool mate){
     return rec;
 }
 
-void filter(bool clip,bool art)(string[] args,string artbam_filename){
+void filter(bool clip,bool art)(string[] args,string artbam_filename,ubyte con){
     auto bam = SAMReader(args[1]);
-    auto out_bam=SAMWriter(args[2],bam.header);
+    auto out_bam=getWriter(con,bam.header);
     static if (art) auto art_bam=SAMWriter(artbam_filename,bam.header);
     Stats stats;
     static if(clip==true){

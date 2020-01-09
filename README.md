@@ -23,9 +23,9 @@ dub build -b release
 
 ### Running FADE
 ```
-fade annotate sam1.bam ref.fa sam1.anno.bam
+fade annotate -b sam1.bam ref.fa > sam1.anno.bam
 samtools sort -n sam1.anno.bam > sam1.anno.qsort.bam #recommended but not neccessary
-fade out sam1.anno.qsort.bam sam1.filtered.bam
+fade out -b sam1.anno.qsort.bam > sam1.filtered.bam
 ```
 
 ## Program Details
@@ -44,21 +44,29 @@ fade annotate
 ```
 Fragmentase Artifact Detection and Elimination
 annotate: performs re-alignment of soft-clips and annotates bam records with bitflag (rs) and realignment tags (am)
--t      --threads threads for parsing the bam file
+usage: ./fade annotate [BAM/SAM input]
+
+-t      --threads extra threads for parsing the bam file
      --min-length Minimum number of bases for a soft-clip to be considered for artifact detection
    --short-length Minimum number of bases for a soft-clip to not be considered short
 -w  --window-size Number of bases considered outside of read or mate region for re-alignment
 -q      --q-score Minimum average base-quality score of a soft-clip to be considered an artifact
 -m     --mate-est Read Mate size estimate in bases
+-b          --bam output bam
+-u         --ubam output uncompressed bam
 -h         --help This help information.
 ```
 fade out
 ```
 Fragmentase Artifact Detection and Elimination
 out: removes all read and mates for reads contain the artifact (used after annotate and requires queryname sorted bam) or, with the -c flag, hard clips out artifact sequence from reads
+usage: ./fade out [BAM/SAM input]
+
 -c         --clip clip reads instead of filtering them
--t      --threads threads for parsing the bam file
+-t      --threads extra threads for parsing the bam file
 -a --artifact-bam filename to extract artifact reads to (BAM/SAM)
+-b          --bam output bam
+-u         --ubam output uncompressed bam
 -h         --help This help information.
 ```
 ### BAM tags
@@ -69,12 +77,12 @@ The rs tag is a 6 bit flag that indicates read artifact status.
 
 | Bit | Description                         |
 |-----|-------------------------------------|
-|0	  |Read is Softclipped                  | 
-|1	  |Read's left sc is an artifact        |
+|0    |Read is Softclipped                  | 
+|1    |Read's left sc is an artifact        |
 |2    |Read's right sc is an artifact       |
 |3    |Left Artifact aligns to mate region  |
 |4    |Right Artifact aligns to mate region |
-|5	  |Read has supplementary alignment     |
+|5    |Read has supplementary alignment     |
 
 #### am tag
 Contains mapping information of the artifact sequence as a string:

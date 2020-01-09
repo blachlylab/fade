@@ -12,10 +12,10 @@ import readstatus;
 import analysis;
 import util;
 
-void annotate(string[] args){
+void annotate(string[] args,ubyte con){
 	auto bam = SAMReader(args[1]);
 	// auto fai=IndexedFastaFile(args[2]);
-	auto out_bam=SAMWriter(args[3],bam.header);
+	auto out_bam=getWriter(con,bam.header);
         //0	Read is Softclipped
         // sc
         //1	Read has Supp Alignment

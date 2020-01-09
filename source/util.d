@@ -1,6 +1,8 @@
 module util;
 import dhtslib;
 import dhtslib.htslib.hts:seq_nt16_str;
+import dhtslib.htslib.sam:bam_hdr_t;
+import std.stdio;
 
 // string rc(Range)(Range seq){
 	//seq.array.reverse;
@@ -53,4 +55,15 @@ ushort avg_qscore(const(char)[] q){
         score>>=1;
     }
     return score;
+}
+
+SAMWriter getWriter(ubyte con,bam_hdr_t* hdr){
+    final switch(con) {
+        case 0:
+        return SAMWriter(stdout,hdr,SAMWriterTypes.SAM);
+        case 1:
+        return SAMWriter(stdout,hdr,SAMWriterTypes.UBAM);
+        case 2:
+        return SAMWriter(stdout,hdr,SAMWriterTypes.BAM);
+    }
 }
