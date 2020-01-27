@@ -105,5 +105,3 @@ FADE makes available three subcommands that all rely on the algorithm described 
 
 <sub><sup>\* The 300 nt padding on each end of the mapped region provides ample search space for artifact alignment search without being too computationally expensive; most artifacts originate very close to the mapped region and 300 nt was chosen as an optimal tradeoff, but could be adjusted.</sub></sup>
 <br/><sub><sup>\*\* Harsher gap penalties allows the algorithm to be strict in allowing gaps, since we expect the artifact sequences to directly match the reference, except for soft-clipped regions derived from sequencing error. A soft-clipped region is considered to be an artifact if there is a 90% or greater match to the opposite strand sequence. </sub></sup>
-
-## Test Data
