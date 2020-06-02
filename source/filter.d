@@ -138,7 +138,7 @@ void filter(bool clip,bool art)(string[] args,string artbam_filename,ubyte con){
             stats.read_count++;
             ReadStatus val;
             auto tag=rec["rs"];
-            if(tag.exists){
+            if(!tag.exists){
                 out_bam.write(&rec);
                 continue;
             }
@@ -172,7 +172,7 @@ void filter(bool clip,bool art)(string[] args,string artbam_filename,ubyte con){
                 stats.read_count++;
                 ReadStatus val;
                 auto tag=rec["rs"];
-                if(tag.exists){
+                if(!tag.exists){
                     // out_bam.writeRecord(rec);
                     continue;
                 }
