@@ -6,7 +6,7 @@
 	"description": "A minimal D application.",
 	"license": "MIT",
 	"dependencies": {
-		"dparasail":"~>0.0.2",
+		"dparasail":"~>0.0.5",
 		"dhtslib":"~>0.10.1"
 	},
 	"configurations":[

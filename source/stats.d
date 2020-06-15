@@ -7,6 +7,7 @@ import std.algorithm.iteration:splitter;
 import std.conv:to;
 import readstatus;
 import dhtslib;
+import dparasail;
 
 struct Stats {
     int read_count;
@@ -68,8 +69,9 @@ void statsfile(string[] args){
     import std.format:format;
     auto bam = SAMReader(args[1]);
     auto outfile = File(args[2],"w");
-    auto header = ["qname","rname","pos","cigar","art_start","art_end","aln_rname","aln_start","aln_end","art_cigar","stemloop","stemloop_rc","pseq","flagbinary","flag","strand"];
+    auto header = ["qname","rname","pos","cigar","art_start","art_end","aln_rname","aln_start","aln_end","art_cigar","stemloop","stemloop_rc","pseq","predicted_inverted_repeat","IR_score","flagbinary","flag","strand"];
     outfile.writeln(header.join('\t'));
+    auto p = Parasail("ACTGN",1,-1,10,2);
     foreach(SAMRecord rec;bam.all_records()){
         auto tag=rec["rs"];
         if(!tag.exists) continue;
@@ -96,6 +98,11 @@ void statsfile(string[] args){
             towrite~=rec["as"].toString.splitter(";").front;
             towrite~=rec["ar"].toString.splitter(";").front;
             towrite~=rec["ap"].toString.splitter(";").front;
+
+            parasail_query res = p.aligner!("sg_qe","striped")(towrite[$-3],towrite[$-2]);
+            towrite~=towrite[$-3][res.beg_query .. res.result.end_query];
+            towrite~=res.result.score.to!string;
+
             towrite~= format!"%08b"(rs.raw);
             towrite~= rs.raw.to!string;
             // this is reverse of the normal strand function as the artifact
@@ -119,6 +126,11 @@ void statsfile(string[] args){
             towrite~=rec["as"].toString.splitter(";").drop(1).front;
             towrite~=rec["ar"].toString.splitter(";").drop(1).front;
             towrite~=rec["ap"].toString.splitter(";").drop(1).front;
+            
+            parasail_query res = p.aligner!("sg_qe","striped")(towrite[$-3],towrite[$-2]);
+            towrite~=towrite[$-3][res.beg_query .. res.result.end_query];
+            towrite~=res.result.score.to!string;
+
             towrite~= format!"%08b"(rs.raw);
             towrite~= rs.raw.to!string;
             // this is reverse of the normal strand function as the artifact
