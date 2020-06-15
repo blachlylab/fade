@@ -72,12 +72,12 @@ void statsfile(string[] args){
     outfile.writeln(header.join('\t'));
     foreach(SAMRecord rec;bam.all_records()){
         auto tag=rec["rs"];
-        if(tag.exists) continue;
+        if(!tag.exists) continue;
         ReadStatus rs;
         rs.raw=tag.to!ubyte;
         if(!(rs.art_left|rs.art_right)) continue;
         tag=rec["am"];
-        if(tag.exists) continue;
+        if(!tag.exists) continue;
         auto am = tag.toString;
         auto am_split = am.split(';');
         if(rs.art_left){
