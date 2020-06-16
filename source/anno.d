@@ -64,9 +64,10 @@ void annotate(string[] args,ubyte con){
         rec["am"]=align_1.alignment~";"~align_2.alignment;
         rec["as"]=align_1.stem_loop~";"~align_2.stem_loop;
         rec["ar"]=align_1.stem_loop_rc~";"~align_2.stem_loop_rc;
-        rec["ap"]=align_1.palindrome~";"~align_2.palindrome;
-        assert(rec["rs"].check!ubyte);
+        rec["ab"]=align_1.bq~align_2.bq;
+        assert(rec["rs"].check!ubyte || rec["rs"].check!byte);
         assert(rec["am"].check!string);
+        assert(rec["ab"].check!(ubyte[]));
         m.lock;
         out_bam.write(&rec);
         m.unlock;

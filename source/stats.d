@@ -9,6 +9,7 @@ import readstatus;
 import dhtslib;
 import dparasail;
 import std.math: round;
+import std.algorithm: sum;
 import std.utf;
 
 struct Stats {
@@ -71,7 +72,7 @@ void statsfile(string[] args){
     import std.format:format;
     auto bam = SAMReader(args[1]);
     auto outfile = File(args[2],"w");
-    auto header = ["qname","rname","pos","cigar","art_start","art_end","aln_rname","aln_start","aln_end","art_cigar","stemloop","stemloop_rc","pseq","predicted_inverted_repeat","IR_identity","flagbinary","flag","strand"];
+    auto header = ["qname","rname","pos","cigar","art_start","art_end","aln_rname","aln_start","aln_end","art_cigar","stemloop","stemloop_rc","avgbq","art_avgbq","predicted_inverted_repeat","IR_identity","flagbinary","flag","strand"];
     outfile.writeln(header.join('\t'));
     auto ps = Parasail("ACTGN",2,-1,10,2);
     foreach(SAMRecord rec;bam.all_records()){
@@ -99,7 +100,8 @@ void statsfile(string[] args){
             towrite~=am_fields[2];
             towrite~=rec["as"].toString.splitter(";").front;
             towrite~=rec["ar"].toString.splitter(";").front;
-            towrite~=rec["ap"].toString.splitter(";").front;
+            towrite~=(float(rec.qscores!false().sum) / float(rec.length)).to!string;
+            towrite~=(float(rec["ab"].to!(ubyte[])[0..towrite[$-2].length].sum) / float(towrite[$-2].length)).to!string;
 
             auto end = round(float(towrite[$-3].length) * 0.75).to!ulong;
             parasail_query p;
@@ -133,7 +135,8 @@ void statsfile(string[] args){
             towrite~=am_fields[2];
             towrite~=rec["as"].toString.splitter(";").drop(1).front;
             towrite~=rec["ar"].toString.splitter(";").drop(1).front;
-            towrite~=rec["ap"].toString.splitter(";").drop(1).front;
+            towrite~=(float(rec.qscores!false().sum) / float(rec.length)).to!string;
+            towrite~=(float(rec["ab"].to!(ubyte[])[$-towrite[$-2].length .. $].sum) / float(towrite[$-2].length)).to!string;
             
             auto end = round(float(towrite[$-3].length) * 0.75).to!ulong;
             parasail_query p;

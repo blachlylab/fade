@@ -10,7 +10,7 @@ import main:artifact_floor_length,artifact_short_cutoff,qscore_cutoff,align_buff
 
 struct Align_Result{
     string alignment;
-    string palindrome;
+    ubyte[] bq;
     string stem_loop;
     string stem_loop_rc;
 
@@ -76,7 +76,7 @@ Align_Result align_clip(bool left)(SAMReader * bam,string fai_f,Parasail * p,SAM
                 plen = plen > rec.length ? rec.length : plen;
                 alignment.stem_loop = rec.sequence[0..plen].idup;
                 alignment.stem_loop_rc = q_seq[$-plen..$];
-                alignment.palindrome = q_seq[clips[0].length..$];
+                alignment.bq = cast(ubyte[])rec.qscores!false[0..plen];
             }
         }
     }else{
@@ -96,7 +96,7 @@ Align_Result align_clip(bool left)(SAMReader * bam,string fai_f,Parasail * p,SAM
                 plen = plen > rec.length ? rec.length : plen;
                 alignment.stem_loop = rec.sequence[$-plen..$].idup;
                 alignment.stem_loop_rc = q_seq[0..plen];
-                alignment.palindrome = q_seq[0..$-clips[1].length];
+                alignment.bq = cast(ubyte[]) rec.qscores!false[$-plen..$];
             }
         }
     }
