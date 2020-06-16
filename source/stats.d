@@ -8,6 +8,8 @@ import std.conv:to;
 import readstatus;
 import dhtslib;
 import dparasail;
+import std.math: round;
+import std.utf;
 
 struct Stats {
     int read_count;
@@ -21,9 +23,9 @@ struct Stats {
 
     int aln_l;
     int aln_r;
-    //0	Read is Softclipped
+    //0 Read is Softclipped
     // sc
-    //1	Read has Supp Alignment
+    //1 Read has Supp Alignment
     // sup
     //2   Supp is on opposite strand from read
     // sup_opp_strand
@@ -31,7 +33,7 @@ struct Stats {
     // qual
     //4   Read is artifact
     // art
-    //5	Artifact aligns to mate region and not read
+    //5 Artifact aligns to mate region and not read
     // art_mate
     //6   Artifact is greater than 5 bp long but shorter than 15 (TODO: set empirically)
     // art_short
@@ -69,9 +71,9 @@ void statsfile(string[] args){
     import std.format:format;
     auto bam = SAMReader(args[1]);
     auto outfile = File(args[2],"w");
-    auto header = ["qname","rname","pos","cigar","art_start","art_end","aln_rname","aln_start","aln_end","art_cigar","stemloop","stemloop_rc","pseq","predicted_inverted_repeat","IR_score","flagbinary","flag","strand"];
+    auto header = ["qname","rname","pos","cigar","art_start","art_end","aln_rname","aln_start","aln_end","art_cigar","stemloop","stemloop_rc","pseq","predicted_inverted_repeat","IR_identity","flagbinary","flag","strand"];
     outfile.writeln(header.join('\t'));
-    auto p = Parasail("ACTGN",1,-1,10,2);
+    auto ps = Parasail("ACTGN",2,-1,10,2);
     foreach(SAMRecord rec;bam.all_records()){
         auto tag=rec["rs"];
         if(!tag.exists) continue;
@@ -99,9 +101,15 @@ void statsfile(string[] args){
             towrite~=rec["ar"].toString.splitter(";").front;
             towrite~=rec["ap"].toString.splitter(";").front;
 
-            parasail_query res = p.aligner!("sg_qe","striped")(towrite[$-3],towrite[$-2]);
-            towrite~=towrite[$-3][res.beg_query .. res.result.end_query];
-            towrite~=res.result.score.to!string;
+            auto end = round(float(towrite[$-3].length) * 0.75).to!ulong;
+            parasail_query p;
+            p.seq1=toUTFz!(char *)(towrite[$-3][0..end]);
+            p.seq2=toUTFz!(char *)(towrite[$-2]);
+            p.seq1Len=cast(int)end;
+            p.seq2Len=cast(int)towrite[$-2].length;
+            p.result=ps.aligner!("sw","stats","striped","16")(p);
+            towrite~=towrite[$-3][0 .. p.result.end_query + 1];
+            towrite~=(float(parasail_result_get_matches(p.result)) / float(p.result.end_query + 1)).to!string;
 
             towrite~= format!"%08b"(rs.raw);
             towrite~= rs.raw.to!string;
@@ -127,9 +135,15 @@ void statsfile(string[] args){
             towrite~=rec["ar"].toString.splitter(";").drop(1).front;
             towrite~=rec["ap"].toString.splitter(";").drop(1).front;
             
-            parasail_query res = p.aligner!("sg_qe","striped")(towrite[$-3],towrite[$-2]);
-            towrite~=towrite[$-3][res.beg_query .. res.result.end_query];
-            towrite~=res.result.score.to!string;
+            auto end = round(float(towrite[$-3].length) * 0.75).to!ulong;
+            parasail_query p;
+            p.seq1=toUTFz!(char *)(towrite[$-3][0..end]);
+            p.seq2=toUTFz!(char *)(towrite[$-2]);
+            p.seq1Len=cast(int)end;
+            p.seq2Len=cast(int)towrite[$-2].length;
+            p.result=ps.aligner!("sw","stats","striped","16")(p);
+            towrite~=towrite[$-3][0 .. p.result.end_query + 1];
+            towrite~=(float(parasail_result_get_matches(p.result)) / float(p.result.end_query + 1)).to!string;
 
             towrite~= format!"%08b"(rs.raw);
             towrite~= rs.raw.to!string;
