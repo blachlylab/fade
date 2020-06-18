@@ -5,6 +5,7 @@ import std.parallelism:defaultPoolThreads;
 import filter:filter;
 import anno;
 import stats;
+import remap;
 
 
 
@@ -91,6 +92,31 @@ void main(string[] args){
             filter!(false,true)(args[1..$],artifact_bam,con);
         else
             filter!(false,false)(args[1..$],artifact_bam,con);
+    }else if(args[1]=="extract"){
+        auto res=getopt(args,config.bundling,
+            "threads|t","extra threads for parsing the bam file",&threads,
+            "artifact-bam|a","filename to extract artifact reads to (BAM/SAM)",&artifact_bam,
+            "bam|b","output bam",&output_bam,
+            "ubam|u","output uncompressed bam",&output_ubam
+        );
+
+        if (res.helpWanted | (args.length < 3)) {
+            defaultGetoptPrinter(
+                "Fragmentase Artifact Detection and Elimination\n"~
+                "extract: extracts artifacts into a mapped bam\n"~
+                "usage: ./fade extract [BAM/SAM input]\n", res.options);
+            stderr.writeln();
+            return;
+        }
+        if(threads!=0){
+            defaultPoolThreads(threads);
+        }
+        ubyte con = (((cast(ubyte) output_bam)<<1) | cast(ubyte) output_ubam);
+        if(con>2) {
+            stderr.writeln("please use only one of the b or u flags");
+            return;
+        }
+        remapArtifacts(args,con);
     }else if(args[1]=="stats"){
         auto res=getopt(args,config.bundling,
         "threads|t","threads for parsing the bam file",&threads);
