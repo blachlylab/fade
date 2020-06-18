@@ -56,6 +56,6 @@ void remapArtifacts(string[] args, ubyte con){
             newRec.cigar = cigarFromString(am_fields[2]);
             out_bam.write(&newRec);
         }
-        out_bam.close;
     }
+    out_bam.close;
 }

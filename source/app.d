@@ -116,7 +116,7 @@ void main(string[] args){
             stderr.writeln("please use only one of the b or u flags");
             return;
         }
-        remapArtifacts(args,con);
+        remapArtifacts(args[1..$],con);
     }else if(args[1]=="stats"){
         auto res=getopt(args,config.bundling,
         "threads|t","threads for parsing the bam file",&threads);
