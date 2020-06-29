@@ -35,7 +35,7 @@ OpenSUSE
 
 sudo zypper install autoconf automake make gcc perl zlib-devel libbz2-devel xz-devel libcurl-devel libopenssl-devel
 ```
-
+In addition, please make sure ```wget``` and ```bzip2``` are installed in order to follow the rest of the instructions.
 Now download and make htslib. This specifically must be version [1.9](https://github.com/samtools/htslib/releases/tag/1.9).
 ```
 wget https://github.com/samtools/htslib/releases/download/1.9/htslib-1.9.tar.bz2
