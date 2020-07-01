@@ -4,6 +4,8 @@
 
 DNA shearing is a crucial first step in most NGS protocols for Illumina. Enzymatic fragmentation has shown in recent years to be a cost and time effective alternative to physical shearing (i.e. sonication). We discovered that enzymatic fragmentation leads to unexpected alteration of the original DNA source material. We provide fade as a method of identification and removal of enymatic fragmentation artifacts.
 
+Our [documentation](https://github.com/blachlylab/fade/raw/master/INSTALL.md) has information on installing fade and its prerequisites.
+
 ### Running FADE 
 ```
 fade annotate -b sam1.bam ref.fa > sam1.anno.bam
