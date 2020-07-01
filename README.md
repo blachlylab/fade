@@ -4,95 +4,7 @@
 
 DNA shearing is a crucial first step in most NGS protocols for Illumina. Enzymatic fragmentation has shown in recent years to be a cost and time effective alternative to physical shearing (i.e. sonication). We discovered that enzymatic fragmentation leads to unexpected alteration of the original DNA source material. We provide fade as a method of identification and removal of enymatic fragmentation artifacts.
 
-## Installation
-
-Install [htslib](http://www.htslib.org/download/) and [parasail](https://github.com/jeffdaily/parasail#compiling-and-installing) and download a binary fade release.
-### Prerequisites
-#### htslib
-Install [htslib](http://www.htslib.org/download/) prerequisites.
-```
-Debian / Ubuntu
----------------
-
-sudo apt-get update  # Ensure the package list is up to date
-sudo apt-get install autoconf automake make gcc perl zlib1g-dev libbz2-dev liblzma-dev libcurl4-gnutls-dev libssl-dev
-
-Note: libcurl4-openssl-dev can be used as an alternative to libcurl4-gnutls-dev.
-
-RedHat / CentOS
----------------
-
-sudo yum install autoconf automake make gcc perl-Data-Dumper zlib-devel bzip2 bzip2-devel xz-devel curl-devel openssl-devel
-
-Alpine Linux
-------------
-
-sudo apk update  # Ensure the package list is up to date
-sudo apk add autoconf automake make gcc musl-dev perl bash zlib-dev bzip2-dev xz-dev curl-dev libressl-dev
-
-OpenSUSE
---------
-
-sudo zypper install autoconf automake make gcc perl zlib-devel libbz2-devel xz-devel libcurl-devel libopenssl-devel
-```
-In addition, please make sure ```wget``` and ```bzip2``` are installed in order to follow the rest of the instructions.
-Now download and make htslib. This specifically must be version [1.9](https://github.com/samtools/htslib/releases/tag/1.9).
-```
-wget https://github.com/samtools/htslib/releases/download/1.9/htslib-1.9.tar.bz2
-tar -xjf htslib-1.9.tar.bz2
-cd htslib-1.9
-./configure
-make 
-sudo make install
-```
-#### parasail
-
-Download and install parasail.
-```
-wget https://github.com/jeffdaily/parasail/releases/download/v2.4.2/parasail-2.4.2-manylinux1_x86_64.tar.gz
-tar -xzf parasail-2.4.2-manylinux1_x86_64.tar.gz
-cd parasail-2.4.2-manylinux1_x86_64
-cd lib/
-sudo cp * /usr/local/lib/
-```
-#### Other
-Make sure ```/usr/local/lib``` is on your ```LD_LIBRARY_PATH```.
-```
-# add to your bashrc 
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
-```
-### Installing FADE
-Go to the [latest release](https://github.com/blachlylab/fade/releases/latest).
-```
-wget https://github.com/blachlylab/fade/releases/download/v0.1.1/fade
-sudo cp fade /usr/local/bin
-```
-
-### Building FADE from source
-Build from source using dub and a D compiler. We recommend ldc2 as the compiler, however dmd should work as well. For more information on D compilers, visit [here](https://dlang.org/download.html).
-#### Install dub and ldc2
-```
-curl -fsS https://dlang.org/install.sh | bash -s ldc
-```
-#### Install dub and dmd
-```
-curl -fsS https://dlang.org/install.sh | bash -s dmd
-```
-#### Build FADE
-```
-source ~/dlang/*compiler*/activate
-git clone https://github.com/blachlylab/fade.git 
-cd fade
-dub build -b release
-
-#LDC2
-LIBRARY_PATH=/usr/local/lib/ dub build -b release
-
-# deactivate dlang environment
-deactivate
-```
-
-### Running FADE
+### Running FADE 
 ```
 fade annotate -b sam1.bam ref.fa > sam1.anno.bam
 samtools sort -n sam1.anno.bam > sam1.anno.qsort.bam #recommended but not neccessary
@@ -140,29 +52,6 @@ usage: ./fade out [BAM/SAM input]
 -u         --ubam output uncompressed bam
 -h         --help This help information.
 ```
-### BAM tags
-FADE uses BAM/SAM tags to annotate artifact reads. These tags are then used to identify and remove/clip reads.
-
-#### rs tag
-The rs tag is a 6 bit flag that indicates read artifact status.
-
-| Bit | Description                         |
-|-----|-------------------------------------|
-|0    |Read is Softclipped                  | 
-|1    |Read's left sc is an artifact        |
-|2    |Read's right sc is an artifact       |
-|3    |Left Artifact aligns to mate region  |
-|4    |Right Artifact aligns to mate region |
-|5    |Read has supplementary alignment     |
-
-#### am tag
-Contains mapping information of the artifact sequence as a string:
-Format is CHROM, POS, CIGAR with left and right artifacts delimited by ;
-i.e.   chr1,20,120S20M;chr1,120,15M120S
-
-#### as, ap, and ar tags
-As described in our manuscript we describe an expected stem loop structure:
-
 
 ## Algorithm
 FADE is written in D and uses the [htslib](http://www.htslib.org/download/) library via [dhtslib](https://github.com/blachlylab/dhtslib.git), and the [parasail](https://github.com/jeffdaily/parasail) library via [dparasail](https://github.com/blachlylab/dparasail). FADE accepts SAM/BAM/CRAM files containing reads that have been mapped to a reference genome and filters or cleans up artifact-containing reads according to the following procedure. 
