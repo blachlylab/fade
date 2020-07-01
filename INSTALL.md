@@ -61,6 +61,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 </details>
 <details>
 <summary> Install FADE </summary>
+
 Go to the [latest release](https://github.com/blachlylab/fade/releases/latest).
 ```
 wget https://github.com/blachlylab/fade/releases/download/v0.1.1/fade
@@ -69,6 +70,7 @@ sudo cp fade /usr/local/bin
 </details>
 <details>
 <summary> Building FADE from source </summary>
+
 Build from source using dub and a D compiler. We recommend ldc2 as the compiler, however dmd should work as well. For more information on D compilers, visit [here](https://dlang.org/download.html).
 #### Install dub and ldc2 (Preferred)
 ```
@@ -91,6 +93,7 @@ deactivate
 </details>
 <details>
 <summary> Non-root installation </summary>
+
 Non-root installs can be tricky. It basically sums up to making sure all necessary shared libraries can be found by the fade executable.
 An easy way of install htslib in a non-root capacity is via [miniconda](https://docs.conda.io/en/latest/miniconda.html).
 
