@@ -3,6 +3,7 @@
 Install [htslib](http://www.htslib.org/download/) and [parasail](https://github.com/jeffdaily/parasail#compiling-and-installing) and download a binary fade release.
 <details>
 <summary> Prerequisites </summary>
+
 #### Install htslib
 
 Install [htslib](http://www.htslib.org/download/) prerequisites.
@@ -41,7 +42,7 @@ cd htslib-1.9
 make 
 sudo make install
 ```
-#### parasail
+#### Install parasail
 
 Download and install parasail.
 ```
