@@ -6,6 +6,7 @@ import filter:filter;
 import anno;
 import stats;
 import remap;
+import noclip;
 
 
 
@@ -131,6 +132,20 @@ void main(string[] args){
             defaultPoolThreads(threads);
         }
         statsfile(args[1..$]);
+    }else if(args[1]=="stats-clip"){
+        auto res=getopt(args,config.bundling,
+        "threads|t","threads for parsing the bam file",&threads);
+        if (res.helpWanted | (args.length < 3)) {
+            defaultGetoptPrinter(
+                "Fragmentase Artifact Detection and Elimination\n"~
+                "stats: reports extended information about artifact reads (used after annotate)", res.options);
+            stderr.writeln();
+            return;
+        }
+        if(threads!=0){
+            defaultPoolThreads(threads);
+        }
+        noclipfile(args[1..$]);
     }else{
         auto res=getopt(args,config.bundling);
         if (res.helpWanted | (args.length < 2)) {

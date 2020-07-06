@@ -74,7 +74,7 @@ void statsfile(string[] args){
     auto outfile = File(args[2],"w");
     auto header = ["qname","rname","pos","cigar","art_start","art_end","aln_rname","aln_start","aln_end","art_cigar","stemloop","stemloop_rc","predicted_inverted_repeat","IR_identity","avgbq","art_avgbq","art_bq","IR_bq","flagbinary","flag","strand"];
     outfile.writeln(header.join('\t'));
-    auto ps = Parasail("ACTGN",2,-1,10,2);
+    auto ps = Parasail("ACTGN",3,-8,10,5);
     foreach(SAMRecord rec;bam.all_records()){
         auto tag=rec["rs"];
         if(!tag.exists) continue;
@@ -110,6 +110,9 @@ void statsfile(string[] args){
             p.result=ps.aligner!("sw","stats","striped","16")(p);
             towrite~=towrite[$-2][0 .. p.result.end_query + 1];
             towrite~=(float(parasail_result_get_matches(p.result)) / float(p.result.end_query + 1)).to!string;
+
+            debug p.result=ps.aligner!("sw","trace","striped","16")(p);
+            debug parasail_traceback_generic(p.seq1,p.seq1Len,p.seq2,p.seq2Len,toUTFz!(char *)("A"),toUTFz!(char *)("B"),ps.score_matrix,p.result,'|','*','*',60,7,1);
 
             towrite~=(float(rec.qscores!false().sum) / float(rec.length)).to!string;
             auto bq = rec["ab"].toString[0..towrite[$-4].length].dup;
@@ -150,6 +153,10 @@ void statsfile(string[] args){
             p.result=ps.aligner!("sw","stats","striped","16")(p);
             towrite~=towrite[$-2][0 .. p.result.end_query + 1];
             towrite~=(float(parasail_result_get_matches(p.result)) / float(p.result.end_query + 1)).to!string;
+
+            debug p.result=ps.aligner!("sw","trace","striped","16")(p);
+            debug parasail_traceback_generic(p.seq1,p.seq1Len,p.seq2,p.seq2Len,toUTFz!(char *)("A"),toUTFz!(char *)("B"),ps.score_matrix,p.result,'|','*','*',60,7,1);
+
 
             towrite~=(float(rec.qscores!false().sum) / float(rec.length)).to!string;
             auto bq = rec["ab"].toString[$-towrite[$-4].length .. $].dup;
