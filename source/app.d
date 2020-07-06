@@ -20,14 +20,19 @@ bool clip = false;
 bool output_bam;
 bool output_ubam;
 
+string full_help = "Fragmentase Artifact Detection and Elimination\n"~
+                "usage: ./fade [subcommand]\n"~
+                "\tannotate: marks artifact reads in bam tags (must be done first)\n"~
+                "\tout: eliminates artifact from reads(may require queryname sorted bam)\n"~
+                "\tstats: reports extended information about artifact reads\n"~
+                "\tstats-clip: reports extended information about all soft-clipped reads\n"~
+                "\textract: extracts artifacts into a mapped bam";
+
 void main(string[] args){
     if(args.length==1){
         auto res=getopt(args,config.bundling);
         defaultGetoptPrinter(
-            "Fragmentase Artifact Detection and Elimination\n"~
-            "usage: ./fade [subcommand]\n"~
-            "\tannotate: marks artifact reads in bam tags (must be done first)\n"~
-            "\tout: eliminates artifact from reads(may require queryname sorted bam)", res.options);
+            full_help, res.options);
         stderr.writeln();
         return;
     }
@@ -45,7 +50,7 @@ void main(string[] args){
             defaultGetoptPrinter(
                 "Fragmentase Artifact Detection and Elimination\n"~
                 "annotate: performs re-alignment of soft-clips and annotates bam records with bitflag (rs) and realignment tags (am)\n"~
-                "usage: ./fade annotate [BAM/SAM input]\n", res.options);
+                "usage: ./fade annotate [BAM/SAM input] [Indexed fasta reference]\n", res.options);
             stderr.writeln();
             return;
         }
@@ -131,7 +136,7 @@ void main(string[] args){
         if (res.helpWanted | (args.length < 3)) {
             defaultGetoptPrinter(
                 "Fragmentase Artifact Detection and Elimination\n"~
-                "stats: reports extended information about artifact reads (used after annotate)", res.options);
+                "stats-clip: reports extended information about all soft-clipped reads (used after annotate)", res.options);
             stderr.writeln();
             return;
         }
@@ -143,10 +148,7 @@ void main(string[] args){
         auto res=getopt(args,config.bundling);
         if (res.helpWanted | (args.length < 2)) {
             defaultGetoptPrinter(
-                "Fragmentase Artifact Detection and Elimination\n"~
-                "usage: ./fade [subcommand]\n"~
-                "\tannotate: marks artifact reads in bam tags (must be done first)\n"~
-                "\tout: eliminates artifact from reads(may require queryname sorted bam)", res.options);
+                full_help, res.options);
             stderr.writeln();
             return;
         }
