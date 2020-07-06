@@ -13,6 +13,12 @@ samtools sort -n sam1.anno.bam > sam1.anno.qsort.bam #recommended but not necces
 fade out -b sam1.anno.qsort.bam > sam1.filtered.bam
 ```
 
+### Running FADE via Docker
+```
+docker run -v `pwd`:/data charesgregory/fade annotate -b /data/sam1.bam /data/ref.fa > sam1.anno.bam
+docker run -v `pwd`:/data charesgregory/fade out -b -c /data/sam1.anno.qsort.bam > sam1.filtered.bam
+```
+
 ## Program Details
 
 ### Command-line parameters
