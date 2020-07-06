@@ -19,7 +19,6 @@ int threads;
 bool clip = false;
 bool output_bam;
 bool output_ubam;
-string artifact_bam="";
 
 void main(string[] args){
     if(args.length==1){
@@ -63,7 +62,6 @@ void main(string[] args){
         auto res=getopt(args,config.bundling,
             "clip|c","clip reads instead of filtering them",&clip,
             "threads|t","extra threads for parsing the bam file",&threads,
-            "artifact-bam|a","filename to extract artifact reads to (BAM/SAM)",&artifact_bam,
             "bam|b","output bam",&output_bam,
             "ubam|u","output uncompressed bam",&output_ubam
         );
@@ -85,18 +83,13 @@ void main(string[] args){
             stderr.writeln("please use only one of the b or u flags");
             return;
         }
-        if(clip && artifact_bam!="")
-            filter!(true,true)(args[1..$],artifact_bam,con);
-        else if(clip && artifact_bam=="")
-            filter!(true,false)(args[1..$],artifact_bam,con);
-        else if(!clip && artifact_bam!="")
-            filter!(false,true)(args[1..$],artifact_bam,con);
+        if(clip)
+            filter!(true)(args[1..$],con);
         else
-            filter!(false,false)(args[1..$],artifact_bam,con);
+            filter!(false)(args[1..$],con);
     }else if(args[1]=="extract"){
         auto res=getopt(args,config.bundling,
             "threads|t","extra threads for parsing the bam file",&threads,
-            "artifact-bam|a","filename to extract artifact reads to (BAM/SAM)",&artifact_bam,
             "bam|b","output bam",&output_bam,
             "ubam|u","output uncompressed bam",&output_ubam
         );

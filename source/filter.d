@@ -57,7 +57,8 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
                 new_cigar=new_cigar[1..$];
             }
             if(new_cigar.length==0) break;
-        } 
+        }
+        new_cigar=CigarOp(art_cigar.ref_bases_covered,Ops.HARD_CLIP)~new_cigar;
     }
     if(status.art_right){
         //get artifact cigar
@@ -98,6 +99,7 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
             }
             if(new_cigar.length==0) break;
         }
+        new_cigar=new_cigar~CigarOp(art_cigar.ref_bases_covered,Ops.HARD_CLIP);
     }
     rec.cigar=Cigar(new_cigar);
 }
@@ -128,10 +130,9 @@ SAMRecord makeArtifactRecord(SAMRecord * original,bool left, bool mate){
     return rec;
 }
 
-void filter(bool clip,bool art)(string[] args,string artbam_filename,ubyte con){
+void filter(bool clip)(string[] args,ubyte con){
     auto bam = SAMReader(args[1]);
     auto out_bam=getWriter(con,bam.header);
-    static if (art) auto art_bam=SAMWriter(artbam_filename,bam.header);
     Stats stats;
     static if(clip==true){
         foreach(SAMRecord rec;bam.all_records()){
@@ -147,15 +148,6 @@ void filter(bool clip,bool art)(string[] args,string artbam_filename,ubyte con){
             if(!(val.art_left | val.art_right)){
                 out_bam.write(&rec);
             }else{
-                static if (art) art_bam.write(&rec);
-                if(val.art_left){
-                    auto art_rec =makeArtifactRecord(&rec,true,val.mate_left);
-                    static if (art) art_bam.write(&art_rec);
-                }
-                if(val.art_right){
-                    auto art_rec = makeArtifactRecord(&rec,false,val.mate_right);
-                    static if (art) art_bam.write(&art_rec);
-                }
                 clipRead(&rec,&val);
                 out_bam.write(&rec);
             }
@@ -182,16 +174,13 @@ void filter(bool clip,bool art)(string[] args,string artbam_filename,ubyte con){
                     art_found=true;
                 }
             }
-            if(art_found){
-                foreach(rec;grouped_reads){
-                    static if (art) art_bam.write(&rec);
-                }
-            }else{
+            if(!art_found){
                 foreach(rec;grouped_reads){
                     out_bam.write(&rec);
                 }
             }
         }
     }
+    out_bam.close;
     stats.print;
 }
