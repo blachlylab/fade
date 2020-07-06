@@ -29,13 +29,17 @@ Fragmentase Artifact Detection and Elimination
 usage: ./fade [subcommand]
         annotate: marks artifact reads in bam tags (must be done first)
         out: eliminates artifact from reads(may require queryname sorted bam)
+        stats: reports extended information about artifact reads
+        stats-clip: reports extended information about all soft-clipped reads
+        extract: extracts artifacts into a mapped bam
 -h --help This help information.
 ```
+
 fade annotate
 ```
 Fragmentase Artifact Detection and Elimination
 annotate: performs re-alignment of soft-clips and annotates bam records with bitflag (rs) and realignment tags (am)
-usage: ./fade annotate [BAM/SAM input]
+usage: ./fade annotate [BAM/SAM input] [Indexed fasta reference]
 
 -t      --threads extra threads for parsing the bam file
      --min-length Minimum number of bases for a soft-clip to be considered for artifact detection
@@ -47,18 +51,46 @@ usage: ./fade annotate [BAM/SAM input]
 -u         --ubam output uncompressed bam
 -h         --help This help information.
 ```
+
 fade out
 ```
 Fragmentase Artifact Detection and Elimination
 out: removes all read and mates for reads contain the artifact (used after annotate and requires queryname sorted bam) or, with the -c flag, hard clips out artifact sequence from reads
 usage: ./fade out [BAM/SAM input]
 
--c         --clip clip reads instead of filtering them
--t      --threads extra threads for parsing the bam file
--a --artifact-bam filename to extract artifact reads to (BAM/SAM)
--b          --bam output bam
--u         --ubam output uncompressed bam
--h         --help This help information.
+-c    --clip clip reads instead of filtering them
+-t --threads extra threads for parsing the bam file
+-b     --bam output bam
+-u    --ubam output uncompressed bam
+-h    --help This help information.
+```
+
+fade stats
+```
+Fragmentase Artifact Detection and Elimination
+stats: reports extended information about artifact reads (used after annotate)
+-t --threads threads for parsing the bam file
+-h    --help This help information.
+```
+
+fade stats-clip
+```
+Fragmentase Artifact Detection and Elimination
+stats-clip: reports extended information about all soft-clipped reads (used after annotate)
+-t --threads threads for parsing the bam file
+-h    --help This help information.
+```
+
+fade extract
+```
+Fragmentase Artifact Detection and Elimination
+extract: extracts artifacts into a mapped bam
+usage: ./fade extract [BAM/SAM input]
+
+-t --threads extra threads for parsing the bam file
+-b     --bam output bam
+-u    --ubam output uncompressed bam
+-h    --help This help information.
 ```
 
 ## Algorithm
