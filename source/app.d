@@ -11,10 +11,7 @@ import noclip;
 
 
 int artifact_floor_length=5;
-int artifact_short_cutoff=15;
 int align_buffer_size=300;
-int mate_size_est=151;
-int qscore_cutoff=20;
 int threads;
 bool clip = false;
 bool output_bam;
@@ -40,10 +37,7 @@ void main(string[] args){
         auto res=getopt(args,config.bundling,
             "threads|t","extra threads for parsing the bam file",&threads,
             "min-length","Minimum number of bases for a soft-clip to be considered for artifact detection",&artifact_floor_length,
-            "short-length","Minimum number of bases for a soft-clip to not be considered short",&artifact_short_cutoff,
             "window-size|w","Number of bases considered outside of read or mate region for re-alignment",&align_buffer_size,
-            "q-score|q","Minimum average base-quality score of a soft-clip to be considered an artifact",&qscore_cutoff,
-            "mate-est|m","Read Mate size estimate in bases",&mate_size_est,
             "bam|b","output bam",&output_bam,
             "ubam|u","output uncompressed bam",&output_ubam);
         if (res.helpWanted | (args.length < 3)) {
