@@ -120,3 +120,17 @@ Now follow previous instructions to install FADE. If compiling change this line.
 LIBRARY_PATH=~/miniconda/lib/ dub build -b release
 ```
 </details>
+
+<details>
+<summary> Fade installation with multiple htslib versions</summary>
+
+FADE requires htslib version 1.9, though the latest version is 1.10.2 (as of writing).
+Your htslib version may be more up to date than the one our instructions would have you install.
+
+In the case of using a provided binary, this should have no effect. FADE's binary will be able to 
+find the correct shared library for htslib.
+
+However, if building fade from source you should ensure that your htslib.so symbolic link 
+under /usr/local/lib points to htslib.so.2 .
+
+</details>
