@@ -6,7 +6,7 @@ import dhtslib;
 import dparasail;
 import readstatus;
 import util;
-import main:artifact_floor_length,align_buffer_size;
+import main:artifact_floor_length,artifact_short_cutoff,qscore_cutoff,align_buffer_size,mate_size_est;
 
 struct Align_Result{
     string alignment;
@@ -17,7 +17,7 @@ struct Align_Result{
 }
 
 /// Align the sofclip to the read region or the mate region
-Align_Result align_clip(bool left)(SAMReader * bam,IndexedFastaFile * fai,Parasail * p,SAMRecord * rec,
+Align_Result align_clip(bool left)(SAMReader * bam,string fai_f,Parasail * p,SAMRecord * rec,
         ReadStatus * status, uint clip_len){
     string q_seq;
     string ref_seq;
@@ -50,6 +50,7 @@ Align_Result align_clip(bool left)(SAMReader * bam,IndexedFastaFile * fai,Parasa
     if(end>bam.target_lens[rec.tid]){
         end=bam.target_lens[rec.tid];
     }
+    auto fai = IndexedFastaFile(fai_f);
     //get read region seq
     ref_seq=fai.fetchSequence(bam.target_names[rec.tid],start,end).toUpper;
     
