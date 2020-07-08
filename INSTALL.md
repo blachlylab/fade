@@ -64,7 +64,7 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 
 Go to the [latest release](https://github.com/blachlylab/fade/releases/latest).
 ```
-wget https://github.com/blachlylab/fade/releases/download/v0.2.1/fade
+wget https://github.com/blachlylab/fade/releases/download/v0.2.2/fade
 sudo cp fade /usr/local/bin
 ```
 </details>
