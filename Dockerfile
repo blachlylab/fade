@@ -26,7 +26,7 @@ RUN wget https://github.com/jeffdaily/parasail/releases/download/v2.4.2/parasail
     cd / && \
     rm -rf parasail-2.4.2-manylinux1_x86_64
 
-RUN wget https://github.com/blachlylab/fade/releases/download/v0.1.2/fade && \
+RUN wget https://github.com/blachlylab/fade/releases/download/v0.2.1/fade && \
     chmod +x fade && \
     mv fade /usr/local/bin
 
