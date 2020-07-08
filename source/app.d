@@ -56,7 +56,7 @@ void main(string[] args){
             stderr.writeln("please use only one of the b or u flags");
             return;
         }
-        annotate(args[1..$],con);
+        annotate(args[1..$],con,artifact_floor_length,align_buffer_size);
     }else if(args[1]=="out"){
         auto res=getopt(args,config.bundling,
             "clip|c","clip reads instead of filtering them",&clip,

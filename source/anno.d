@@ -12,7 +12,7 @@ import readstatus;
 import analysis;
 import util;
 
-void annotate(string[] args,ubyte con){
+void annotate(string[] args,ubyte con,int artifact_floor_length,int align_buffer_size){
     auto bam = SAMReader(args[1]);
     // auto fai=IndexedFastaFile(args[2]);
     auto out_bam=getWriter(con,bam.header);
@@ -34,6 +34,7 @@ void annotate(string[] args,ubyte con){
         // far
     auto p=Parasail("ACTGN",2,-3,10,2);
     auto m = new Mutex();
+    auto fai = IndexedFastaFile(args[2]);
     foreach(SAMRecord rec;parallel(bam.all_records)){
         ReadStatus status;
         if(rec.isSupplementary()||
@@ -53,11 +54,11 @@ void annotate(string[] args,ubyte con){
         //left soft-clip (left on reference not 5' neccesarily)
         Align_Result align_1,align_2;
         if(clips[0].length!=0){
-            align_1=align_clip!true(&bam,args[2],&p,&rec,&status,clips[0].length());
+            align_1=align_clip!true(&bam,&fai,&p,&rec,&status,clips[0].length(),&m,artifact_floor_length,align_buffer_size);
         }
         //right soft-clip
         if(clips[1].length()!=0){
-            align_2=align_clip!false(&bam,args[2],&p,&rec,&status,clips[1].length());
+            align_2=align_clip!false(&bam,&fai,&p,&rec,&status,clips[1].length(),&m,artifact_floor_length,align_buffer_size);
         }
         // writeln(status.raw);
         rec["rs"]=status.raw;

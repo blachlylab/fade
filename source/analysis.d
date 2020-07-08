@@ -2,11 +2,12 @@ module analysis;
 import std.stdio;
 import std.uni:toUpper;
 import std.conv:to;
+import core.sync.mutex:Mutex;
 import dhtslib;
 import dparasail;
 import readstatus;
 import util;
-import main:artifact_floor_length,artifact_short_cutoff,qscore_cutoff,align_buffer_size,mate_size_est;
+import std.stdio;
 
 struct Align_Result{
     string alignment;
@@ -17,8 +18,8 @@ struct Align_Result{
 }
 
 /// Align the sofclip to the read region or the mate region
-Align_Result align_clip(bool left)(SAMReader * bam,string fai_f,Parasail * p,SAMRecord * rec,
-        ReadStatus * status, uint clip_len){
+Align_Result align_clip(bool left)(SAMReader * bam,IndexedFastaFile * fai,Parasail * p,SAMRecord * rec,
+        ReadStatus * status, uint clip_len, Mutex * m,int artifact_floor_length,int align_buffer_size){
     string q_seq;
     string ref_seq;
     float cutoff;
@@ -50,9 +51,11 @@ Align_Result align_clip(bool left)(SAMReader * bam,string fai_f,Parasail * p,SAM
     if(end>bam.target_lens[rec.tid]){
         end=bam.target_lens[rec.tid];
     }
-    auto fai = IndexedFastaFile(fai_f);
+
+    m.lock();
     //get read region seq
     ref_seq=fai.fetchSequence(bam.target_names[rec.tid],start,end).toUpper;
+    m.unlock();
     
     //align
     res=p.sw_striped(q_seq,ref_seq);
