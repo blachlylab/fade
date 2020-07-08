@@ -40,23 +40,20 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
         rec.sequence=rec.sequence[art_cigar.ref_bases_covered..$];
         rec.q_scores!false(qual[art_cigar.ref_bases_covered..$]);
 
+        auto len_to_clip =  art_cigar.ref_bases_covered;       
         
-        auto overlap_len =  art_cigar.ref_bases_covered-new_cigar[0].length;
-        //remove soft clip
-        new_cigar=new_cigar[1..$];
-        while(overlap_len>0){
+        while(len_to_clip > 0){
             if(new_cigar[0].is_query_consuming){
-                if(new_cigar[0].length >= overlap_len){
-                    new_cigar[0].length = new_cigar[0].length - overlap_len;
-                    overlap_len = 0;
+                if(len_to_clip < new_cigar[0].length){
+                    new_cigar[0].length = new_cigar[0].length - len_to_clip;
+                    len_to_clip = 0;
                 }else{
-                    overlap_len -= new_cigar[0].length;
-                    new_cigar=new_cigar[1..$];
+                    len_to_clip -= new_cigar[0].length;
+                    new_cigar=new_cigar[1..$];    
                 }
             }else{
                 new_cigar=new_cigar[1..$];
             }
-            if(new_cigar.length==0) break;
         }
         new_cigar=CigarOp(art_cigar.ref_bases_covered,Ops.HARD_CLIP)~new_cigar;
     }
@@ -82,22 +79,20 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
 
         if(new_cigar[$-1].op==Ops.HARD_CLIP) new_cigar=new_cigar[0..$-1];
         assert(new_cigar[$-1].op==Ops.SOFT_CLIP);
-        auto overlap_len =  art_cigar.ref_bases_covered-new_cigar[$-1].length;
-        //remove soft clip
-        new_cigar=new_cigar[0..$-1];
-        while(overlap_len>0){
+        auto len_to_clip =  art_cigar.ref_bases_covered;       
+        
+        while(len_to_clip > 0){
             if(new_cigar[$-1].is_query_consuming){
-                if(new_cigar[$-1].length >=overlap_len){
-                    new_cigar[$-1].length = new_cigar[$-1].length - overlap_len;
-                    overlap_len = 0;
+                if(len_to_clip < new_cigar[$-1].length){
+                    new_cigar[$-1].length = new_cigar[$-1].length - len_to_clip;
+                    len_to_clip = 0;
                 }else{
-                    overlap_len -= new_cigar[$-1].length;
-                    new_cigar=new_cigar[0..$-1];
+                    len_to_clip -= new_cigar[$-1].length;
+                    new_cigar=new_cigar[0..$-1];    
                 }
             }else{
                 new_cigar=new_cigar[0..$-1];
             }
-            if(new_cigar.length==0) break;
         }
         new_cigar=new_cigar~CigarOp(art_cigar.ref_bases_covered,Ops.HARD_CLIP);
     }
