@@ -5,7 +5,7 @@ import std.range:drop,retro;
 import std.conv:to;
 import std.stdio;
 import dhtslib;
-import dhtslib.htslib.sam;
+import htslib.sam;
 import readstatus;
 import stats;
 import util;
@@ -13,7 +13,7 @@ import util;
 
 void clipRead(SAMRecord * rec,ReadStatus * status){
     auto new_cigar=rec.cigar.ops.dup;
-    auto qual=rec.qscores!false();
+    auto qual=rec.qscores();
     if(status.art_left){
         //get artifact cigar
         // writeln((*rec)["am"].toString.splitter(";").front.splitter(",").drop(2).front);
@@ -38,7 +38,7 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
 
         //trim sequence
         rec.sequence=rec.sequence[art_cigar.ref_bases_covered..$];
-        rec.q_scores!false(qual[art_cigar.ref_bases_covered..$]);
+        rec.qscores(qual[art_cigar.ref_bases_covered..$]);
 
         auto len_to_clip =  art_cigar.ref_bases_covered;       
         
@@ -75,7 +75,7 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
 
         //trim sequence
         rec.sequence=rec.sequence[0..$-art_cigar.ref_bases_covered];
-        rec.q_scores!false(qual[0..$-art_cigar.ref_bases_covered]);
+        rec.qscores(qual[0..$-art_cigar.ref_bases_covered]);
 
         if(new_cigar[$-1].op==Ops.HARD_CLIP) new_cigar=new_cigar[0..$-1];
         assert(new_cigar[$-1].op==Ops.SOFT_CLIP);
@@ -100,7 +100,7 @@ void clipRead(SAMRecord * rec,ReadStatus * status){
 }
 
 SAMRecord makeArtifactRecord(SAMRecord * original,bool left, bool mate){
-    auto rec =  new SAMRecord(bam_dup1(original.b));
+    auto rec =  new SAMRecord(bam_dup1(original.b),original.h);
     rec.sequence = reverse_complement_sam_record(&rec);
     // writeln(original.queryName);
     // writeln(rec["am"].toString);
@@ -130,27 +130,27 @@ void filter(bool clip)(string[] args,ubyte con){
     auto out_bam=getWriter(con,bam.header);
     Stats stats;
     static if(clip==true){
-        foreach(SAMRecord rec;bam.all_records()){
+        foreach(SAMRecord rec;bam.allRecords()){
             stats.read_count++;
             ReadStatus val;
             auto tag=rec["rs"];
             if(!tag.exists){
-                out_bam.write(&rec);
+                out_bam.write(rec);
                 continue;
             }
             val.raw=tag.to!ubyte;
             stats.parse(val);
             if(!(val.art_left | val.art_right)){
-                out_bam.write(&rec);
+                out_bam.write(rec);
             }else{
                 clipRead(&rec,&val);
-                out_bam.write(&rec);
+                out_bam.write(rec);
             }
         }
     }
     static if(clip==false){
         import std.algorithm.iteration:chunkBy;
-        foreach(recs;bam.all_records.chunkBy!((a,b)=>a.queryName==b.queryName)){
+        foreach(recs;bam.allRecords.chunkBy!((a,b)=>a.queryName==b.queryName)){
             // recs.map!(x=>x.queryName).each!writeln;
             // bam.fp.fp.bgzf.is_write.writeln;
             auto grouped_reads=recs.array;
@@ -171,7 +171,7 @@ void filter(bool clip)(string[] args,ubyte con){
             }
             if(!art_found){
                 foreach(rec;grouped_reads){
-                    out_bam.write(&rec);
+                    out_bam.write(rec);
                 }
             }
         }

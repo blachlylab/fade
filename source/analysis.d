@@ -23,7 +23,7 @@ Align_Result align_clip(bool left)(SAMReader * bam,IndexedFastaFile * fai,Parasa
     string q_seq;
     string ref_seq;
     float cutoff;
-    int start,end;
+    long start,end;
     parasail_query res;
     Align_Result alignment;
 
@@ -79,7 +79,7 @@ Align_Result align_clip(bool left)(SAMReader * bam,IndexedFastaFile * fai,Parasa
                 plen = plen > rec.length ? rec.length : plen;
                 alignment.stem_loop = rec.sequence[0..plen].idup;
                 alignment.stem_loop_rc = q_seq[$-plen..$];
-                alignment.bq = cast(ubyte[])rec.qscores!false[0..plen];
+                alignment.bq = cast(ubyte[])rec.qscores[0..plen];
             }
         }
     }else{
@@ -99,7 +99,7 @@ Align_Result align_clip(bool left)(SAMReader * bam,IndexedFastaFile * fai,Parasa
                 plen = plen > rec.length ? rec.length : plen;
                 alignment.stem_loop = rec.sequence[$-plen..$].idup;
                 alignment.stem_loop_rc = q_seq[0..plen];
-                alignment.bq = cast(ubyte[]) rec.qscores!false[$-plen..$];
+                alignment.bq = cast(ubyte[]) rec.qscores[$-plen..$];
             }
         }
     }

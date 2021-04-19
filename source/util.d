@@ -1,7 +1,7 @@
 module util;
 import dhtslib;
-import dhtslib.htslib.hts:seq_nt16_str;
-import dhtslib.htslib.sam:bam_hdr_t;
+import htslib.hts:seq_nt16_str;
+import htslib.sam:bam_hdr_t;
 import std.stdio;
 
 // string rc(Range)(Range seq){

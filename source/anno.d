@@ -35,7 +35,7 @@ void annotate(string[] args,ubyte con,int artifact_floor_length,int align_buffer
     auto p=Parasail("ACTGN",2,-3,10,2);
     auto m = new Mutex();
     auto fai = IndexedFastaFile(args[2]);
-    foreach(SAMRecord rec;parallel(bam.all_records)){
+    foreach(SAMRecord rec;parallel(bam.allRecords)){
         ReadStatus status;
         if(rec.isSupplementary()||
             rec.isSecondary()||
@@ -44,7 +44,7 @@ void annotate(string[] args,ubyte con,int artifact_floor_length,int align_buffer
         ){
             rec["rs"]=status.raw;
             m.lock;
-            out_bam.write(&rec);
+            out_bam.write(rec);
             m.unlock;
             continue;
         }
@@ -70,7 +70,7 @@ void annotate(string[] args,ubyte con,int artifact_floor_length,int align_buffer
         //assert(rec["am"].check!string);
         //assert(rec["ab"].check!(ubyte[]));
         m.lock;
-        out_bam.write(&rec);
+        out_bam.write(rec);
         m.unlock;
     }
     out_bam.close;

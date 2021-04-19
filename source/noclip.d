@@ -21,7 +21,7 @@ void noclipfile(string[] args){
     auto header = ["qname","sc_q_scores","sc_seq","sc_avg_bq","avg_bq","art_status"];
     outfile.writeln(header.join('\t'));
     auto ps = Parasail("ACTGN",3,-8,10,5);
-    foreach(SAMRecord rec;bam.all_records()){
+    foreach(SAMRecord rec;bam.allRecords()){
         auto tag=rec["rs"];
         if(!tag.exists) continue;
         ReadStatus rs;
@@ -31,7 +31,7 @@ void noclipfile(string[] args){
         if(clips[0].raw){
             string[] towrite;
             towrite~=rec.queryName.idup;
-            auto q_scores = rec.qscores!false();
+            auto q_scores = rec.qscores();
             auto clip_len = clips[0].length;
             auto sc_q_scores = q_scores[0..clip_len].dup;
             auto sc_avg_bq = (float(sc_q_scores.sum) / float(clip_len));
@@ -47,7 +47,7 @@ void noclipfile(string[] args){
         if(clips[1].raw){
             string[] towrite;
             towrite~=rec.queryName.idup;
-            auto q_scores = rec.qscores!false();
+            auto q_scores = rec.qscores();
             auto clip_len = clips[1].length;
             auto sc_q_scores = q_scores[$-clip_len..$].dup;
             auto sc_avg_bq = (float(sc_q_scores.sum) / float(clip_len));
