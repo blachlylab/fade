@@ -6,6 +6,7 @@ import std.conv : to;
 import std.stdio;
 import dhtslib;
 import htslib.sam;
+import htslib.hts_log;
 import readstatus;
 import stats;
 import util;
@@ -43,7 +44,7 @@ void clipRead(SAMRecord* rec, ReadStatus* status)
 
         //trim sequence
         rec.sequence = rec.sequence[art_cigar.alignedLength .. $];
-        rec.qscores(qual[art_cigar.alignedLength .. $]);
+        rec.qscores(qual[art_cigar.alignedLength .. $].dup);
 
         auto len_to_clip = art_cigar.alignedLength;
 
@@ -91,7 +92,7 @@ void clipRead(SAMRecord* rec, ReadStatus* status)
 
         //trim sequence
         rec.sequence = rec.sequence[0 .. $ - art_cigar.alignedLength];
-        rec.qscores(qual[0 .. $ - art_cigar.alignedLength]);
+        rec.qscores(qual[0 .. $ - art_cigar.alignedLength].dup);
 
         if (new_cigar[$ - 1].op == Ops.HARD_CLIP)
             new_cigar = new_cigar[0 .. $ - 1];
@@ -166,7 +167,7 @@ void filter(bool clip)(string cl, string[] args, ubyte con)
     auto header = bam.header.dup;
     header.addLine(
         RecordType.PG, 
-        "ID", "fade-annotate",
+        "ID", "fade-extract",
         "PN", "fade",
         "VN", VERSION,
         "PP", header.valueByPos(RecordType.PG, header.numRecords(RecordType.PG) - 1, "ID"), 
@@ -177,6 +178,7 @@ void filter(bool clip)(string cl, string[] args, ubyte con)
     Stats stats;
     static if (clip == true)
     {
+        hts_log_warning("fade out","Using the -c flag means the output SAM/BAM will not be sorted (reguardless of prior sorting)");
         foreach (SAMRecord rec; bam.allRecords())
         {
             stats.read_count++;

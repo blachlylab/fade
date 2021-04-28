@@ -15,7 +15,7 @@ import util;
 
 void annotate(string cl,string[] args, ubyte con, int artifact_floor_length, int align_buffer_size)
 {
-    hts_log_warning("[fade annotate]","Output SAM/BAM will not be sorted (regaurdless of prior sorting)");
+    hts_log_warning("fade annotate","Output SAM/BAM will not be sorted (reguardless of prior sorting)");
     auto bam = SAMReader(args[1]);
     // auto fai=IndexedFastaFile(args[2]);
     auto header = bam.header.dup;

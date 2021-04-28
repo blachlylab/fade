@@ -1,6 +1,7 @@
 module remap;
 import dhtslib.sam;
 import htslib.sam : BAM_FREVERSE;
+import htslib.hts_log;
 import std.algorithm.mutation : reverse;
 import std.conv : to;
 import readstatus;
@@ -8,6 +9,7 @@ import util;
 
 void remapArtifacts(string cl, string[] args, ubyte con)
 {
+    hts_log_warning("fade extract","Output SAM/BAM will not be sorted");
     import std.array : join, split;
     import std.format : format;
 
@@ -15,7 +17,7 @@ void remapArtifacts(string cl, string[] args, ubyte con)
     auto header = bam.header.dup;
     header.addLine(
         RecordType.PG, 
-        "ID", "fade-annotate",
+        "ID", "fade-extract",
         "PN", "fade",
         "VN", VERSION,
         "PP", header.valueByPos(RecordType.PG, header.numRecords(RecordType.PG) - 1, "ID"), 
