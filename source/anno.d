@@ -7,16 +7,28 @@ import std.array : array;
 import core.sync.mutex : Mutex;
 import std.parallelism : parallel;
 import dhtslib;
+import htslib.hts_log;
 import dparasail;
 import readstatus;
 import analysis;
 import util;
 
-void annotate(string[] args, ubyte con, int artifact_floor_length, int align_buffer_size)
+void annotate(string cl,string[] args, ubyte con, int artifact_floor_length, int align_buffer_size)
 {
+    hts_log_warning("[fade annotate]","Output SAM/BAM will not be sorted (regaurdless of prior sorting)");
     auto bam = SAMReader(args[1]);
     // auto fai=IndexedFastaFile(args[2]);
-    auto out_bam = getWriter(con, bam.header);
+    auto header = bam.header.dup;
+    header.addLine(
+        RecordType.PG, 
+        "ID", "fade-annotate",
+        "PN", "fade",
+        "VN", VERSION,
+        "PP", header.valueByPos(RecordType.PG, header.numRecords(RecordType.PG) - 1, "ID"), 
+        "CL", cl
+        );
+    auto out_bam = getWriter(con, header);
+    
     //0 Read is Softclipped
     // sc
     //1 Read has Supp Alignment
@@ -40,7 +52,7 @@ void annotate(string[] args, ubyte con, int artifact_floor_length, int align_buf
     {
         ReadStatus status;
         if (rec.isSupplementary() || rec.isSecondary() || !rec.isMapped()
-                || rec.cigar.ops.filter!(x => x.op == Ops.SOFT_CLIP).count() == 0)
+                || rec.cigar[].filter!(x => x.op == Ops.SOFT_CLIP).count() == 0)
         {
             rec["rs"] = status.raw;
             m.lock;
@@ -57,13 +69,13 @@ void annotate(string[] args, ubyte con, int artifact_floor_length, int align_buf
         Align_Result align_1, align_2;
         if (clips[0].length != 0)
         {
-            align_1 = align_clip!true(&bam, &fai, &p, &rec, &status,
+            align_1 = align_clip!true(&bam, &fai, &p, rec, &status,
                     clips[0].length(), &m, artifact_floor_length, align_buffer_size);
         }
         //right soft-clip
         if (clips[1].length() != 0)
         {
-            align_2 = align_clip!false(&bam, &fai, &p, &rec, &status,
+            align_2 = align_clip!false(&bam, &fai, &p, rec, &status,
                     clips[1].length(), &m, artifact_floor_length, align_buffer_size);
         }
         // writeln(status.raw);

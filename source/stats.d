@@ -105,42 +105,34 @@ void statsfile(string[] args)
             auto am_fields = am_split[0].split(',');
             string[] towrite;
             towrite ~= rec.queryName.idup;
-            towrite ~= bam.target_names[rec.tid];
+            towrite ~= bam.header.targetName(rec.tid).idup;
             towrite ~= rec.pos.to!string;
             towrite ~= rec.cigar.toString;
-            towrite ~= (rec.pos - rec.cigar.ops.filter!(x => x.op == Ops.SOFT_CLIP).front.length)
+            towrite ~= (rec.pos - rec.cigar[].filter!(x => x.op == Ops.SOFT_CLIP).front.length)
                 .to!string;
             towrite ~= rec.pos.to!string;
             towrite ~= am_fields[0];
             towrite ~= am_fields[1];
-            towrite ~= (am_fields[1].to!int + cigarFromString(am_fields[2]).ref_bases_covered)
+            towrite ~= (am_fields[1].to!int + cigarFromString(am_fields[2]).alignedLength)
                 .to!string;
             towrite ~= am_fields[2];
             towrite ~= rec["as"].toString.splitter(";").front;
             towrite ~= rec["ar"].toString.splitter(";").front;
 
             auto end = round(float(towrite[$ - 2].length) * 0.75).to!ulong;
-            parasail_query p;
-            p.seq1 = toUTFz!(char*)(towrite[$ - 2][0 .. end]);
-            p.seq2 = toUTFz!(char*)(towrite[$ - 1]);
-            p.seq1Len = cast(int) end;
-            p.seq2Len = cast(int) towrite[$ - 1].length;
-            p.result = ps.aligner!("sw", "stats", "striped", "16")(p);
-            towrite ~= towrite[$ - 2][0 .. p.result.end_query + 1];
-            towrite ~= (float(parasail_result_get_matches(p.result)) / float(p.result.end_query + 1))
-                .to!string;
 
-            debug p.result = ps.aligner!("sw", "trace", "striped", "16")(p);
-            debug parasail_traceback_generic(p.seq1, p.seq1Len, p.seq2,
-                    p.seq2Len, toUTFz!(char*)("A"), toUTFz!(char*)("B"),
-                    ps.score_matrix, p.result, '|', '*', '*', 60, 7, 1);
+            auto p = ps.aligner!("sw", "stats", "striped", "16")(towrite[$ - 2][0 .. end],towrite[$ - 1]);
+            towrite ~= towrite[$ - 2][0 .. p.endQuery + 1];
+            towrite ~= (p.identity).to!string;
+
+            debug ps.aligner!("sw", "trace", "striped", "16")(towrite[$ - 2][0 .. end],towrite[$ - 1]).writeAlignment;
 
             towrite ~= (float(rec.qscores.sum) / float(rec.length)).to!string;
             auto bq = rec["ab"].toString[0 .. towrite[$ - 4].length].dup;
             towrite ~= (float(bq.sum) / float(towrite[$ - 4].length)).to!string;
             bq[] = bq[] + 33;
             towrite ~= bq.idup;
-            towrite ~= towrite[$ - 1][0 .. p.result.end_query + 1];
+            towrite ~= towrite[$ - 1][0 .. p.endQuery + 1];
 
             towrite ~= format!"%08b"(rs.raw);
             towrite ~= rs.raw.to!string;
@@ -154,42 +146,34 @@ void statsfile(string[] args)
             auto am_fields = am_split[1].split(',');
             string[] towrite;
             towrite ~= rec.queryName.idup;
-            towrite ~= bam.target_names[rec.tid];
+            towrite ~= bam.header.targetName(rec.tid).idup;
             towrite ~= rec.pos.to!string;
             towrite ~= rec.cigar.toString;
-            towrite ~= (rec.pos + rec.cigar.ref_bases_covered).to!string;
-            towrite ~= (rec.pos + rec.cigar.ref_bases_covered + rec.cigar.ops.filter!(
+            towrite ~= (rec.pos + rec.cigar.alignedLength).to!string;
+            towrite ~= (rec.pos + rec.cigar.alignedLength + rec.cigar[].filter!(
                     x => x.op == Ops.SOFT_CLIP).array[$ - 1].length).to!string;
             towrite ~= am_fields[0];
             towrite ~= am_fields[1];
-            towrite ~= (am_fields[1].to!int + cigarFromString(am_fields[2]).ref_bases_covered)
+            towrite ~= (am_fields[1].to!int + cigarFromString(am_fields[2]).alignedLength)
                 .to!string;
             towrite ~= am_fields[2];
             towrite ~= rec["as"].toString.splitter(";").drop(1).front;
             towrite ~= rec["ar"].toString.splitter(";").drop(1).front;
 
             auto end = round(float(towrite[$ - 2].length) * 0.75).to!ulong;
-            parasail_query p;
-            p.seq1 = toUTFz!(char*)(towrite[$ - 2][0 .. end]);
-            p.seq2 = toUTFz!(char*)(towrite[$ - 1]);
-            p.seq1Len = cast(int) end;
-            p.seq2Len = cast(int) towrite[$ - 1].length;
-            p.result = ps.aligner!("sw", "stats", "striped", "16")(p);
-            towrite ~= towrite[$ - 2][0 .. p.result.end_query + 1];
-            towrite ~= (float(parasail_result_get_matches(p.result)) / float(p.result.end_query + 1))
-                .to!string;
 
-            debug p.result = ps.aligner!("sw", "trace", "striped", "16")(p);
-            debug parasail_traceback_generic(p.seq1, p.seq1Len, p.seq2,
-                    p.seq2Len, toUTFz!(char*)("A"), toUTFz!(char*)("B"),
-                    ps.score_matrix, p.result, '|', '*', '*', 60, 7, 1);
+            auto p = ps.aligner!("sw", "stats", "striped", "16")(towrite[$ - 2][0 .. end],towrite[$ - 1]);
+            towrite ~= towrite[$ - 2][0 .. p.endQuery + 1];
+            towrite ~= (p.identity).to!string;
+
+            debug ps.aligner!("sw", "trace", "striped", "16")(towrite[$ - 2][0 .. end],towrite[$ - 1]).writeAlignment;
 
             towrite ~= (float(rec.qscores().sum) / float(rec.length)).to!string;
             auto bq = rec["ab"].toString[$ - towrite[$ - 4].length .. $].dup;
             towrite ~= (float(bq.sum) / float(towrite[$ - 4].length)).to!string;
             bq[] = bq[] + 33;
             towrite ~= bq.idup;
-            towrite ~= towrite[$ - 1][0 .. p.result.end_query + 1];
+            towrite ~= towrite[$ - 1][0 .. p.endQuery + 1];
 
             towrite ~= format!"%08b"(rs.raw);
             towrite ~= rs.raw.to!string;

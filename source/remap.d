@@ -1,19 +1,28 @@
 module remap;
 import dhtslib.sam;
-import dhtslib.cigar;
 import htslib.sam : BAM_FREVERSE;
 import std.algorithm.mutation : reverse;
 import std.conv : to;
 import readstatus;
 import util;
 
-void remapArtifacts(string[] args, ubyte con)
+void remapArtifacts(string cl, string[] args, ubyte con)
 {
     import std.array : join, split;
     import std.format : format;
 
     auto bam = SAMReader(args[1]);
-    auto out_bam = getWriter(con, bam.header);
+    auto header = bam.header.dup;
+    header.addLine(
+        RecordType.PG, 
+        "ID", "fade-annotate",
+        "PN", "fade",
+        "VN", VERSION,
+        "PP", header.valueByPos(RecordType.PG, header.numRecords(RecordType.PG) - 1, "ID"), 
+        "CL", cl
+        );
+    auto out_bam = getWriter(con, header);
+    
     foreach (SAMRecord rec; bam.allRecords())
     {
         auto tag = rec["rs"];
@@ -30,11 +39,11 @@ void remapArtifacts(string[] args, ubyte con)
         auto am_split = am.split(';');
         if (rs.art_left)
         {
-            SAMRecord newRec = new SAMRecord(rec.h);
+            SAMRecord newRec = SAMRecord(out_bam.header);
             auto am_fields = am_split[0].split(',');
 
             newRec.queryName = rec.queryName.idup;
-            newRec.tid = bam.target_id(am_fields[0]);
+            newRec.tid = bam.header.targetId(am_fields[0]);
             newRec.pos = am_fields[1].to!int;
             if (rec.isReversed())
             {
@@ -44,18 +53,18 @@ void remapArtifacts(string[] args, ubyte con)
             {
                 newRec.flag = 0 | BAM_FREVERSE;
             }
-            newRec.sequence = reverse_complement_sam_record(&rec);
+            newRec.sequence = reverse_complement_sam_record(rec);
             newRec.qscores(rec.qscores.dup.reverse);
             newRec.cigar = cigarFromString(am_fields[2]);
             out_bam.write(newRec);
         }
         if (rs.art_right)
         {
-            SAMRecord newRec = new SAMRecord(bam.header);
+            SAMRecord newRec = SAMRecord(out_bam.header);
             auto am_fields = am_split[1].split(',');
 
             newRec.queryName = rec.queryName.idup;
-            newRec.tid = bam.target_id(am_fields[0]);
+            newRec.tid = bam.header.targetId(am_fields[0]);
             newRec.pos = am_fields[1].to!int;
             if (rec.isReversed())
             {
@@ -65,7 +74,7 @@ void remapArtifacts(string[] args, ubyte con)
             {
                 newRec.flag = 0 | BAM_FREVERSE;
             }
-            newRec.sequence = reverse_complement_sam_record(&rec);
+            newRec.sequence = reverse_complement_sam_record(rec);
             newRec.qscores(rec.qscores.dup.reverse);
             newRec.cigar = cigarFromString(am_fields[2]);
             out_bam.write(newRec);

@@ -4,6 +4,8 @@ import htslib.hts : seq_nt16_str;
 import htslib.sam : bam_hdr_t;
 import std.stdio;
 
+enum VERSION = "v0.3.0";
+
 // string rc(Range)(Range seq){
 //seq.array.reverse;
 // return seq.array.reverse.map!(x=>cast(char)x.complement).array.idup;
@@ -14,7 +16,7 @@ const(char)[16] seq_comp_table = [
 ];
 
 // extract and reverse-complement soft-clipped portion
-pragma(inline, true) char[] reverse_complement_sam_record(SAMRecord* rec)
+pragma(inline, true) char[] reverse_complement_sam_record(SAMRecord rec)
 {
     ubyte* seq_ptr = (rec.b.data + (rec.b.core.n_cigar << 2) + rec.b.core.l_qname);
     char[] ret;
@@ -28,11 +30,11 @@ pragma(inline, true) char[] reverse_complement_sam_record(SAMRecord* rec)
 }
 
 /// report soft clips of a read using a cigar
-pragma(inline, true) CigarOp[2] parse_clips(const Cigar cigar)
+pragma(inline, true) CigarOp[2] parse_clips(Cigar cigar)
 {
     CigarOp[2] clips;
     bool first = true;
-    foreach (CigarOp op; cigar.ops)
+    foreach (CigarOp op; cigar[])
     {
         //skip hard clips
         if (op.op == Ops.HARD_CLIP)
@@ -67,7 +69,7 @@ pragma(inline, true) ushort avg_qscore(const(char)[] q)
     return score;
 }
 
-SAMWriter getWriter(ubyte con, bam_hdr_t* hdr)
+SAMWriter getWriter(ubyte con, SAMHeader hdr)
 {
     final switch (con)
     {

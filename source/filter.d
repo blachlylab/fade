@@ -12,7 +12,7 @@ import util;
 
 void clipRead(SAMRecord* rec, ReadStatus* status)
 {
-    auto new_cigar = rec.cigar.ops.dup;
+    auto new_cigar = rec.cigar.dup;
     auto qual = rec.qscores();
     if (status.art_left)
     {
@@ -22,13 +22,13 @@ void clipRead(SAMRecord* rec, ReadStatus* status)
                 .front.splitter(",").drop(2).front);
 
         //assert left side is soft-clipped 
-        if (art_cigar.ops[0].op != Ops.SOFT_CLIP)
+        if (art_cigar[0].op != Ops.SOFT_CLIP)
         {
             writeln((*rec)["am"]);
             debug assert(false);
         else return;
         }
-        if (art_cigar.ref_bases_covered > rec.length)
+        if (art_cigar.alignedLength > rec.length)
         {
             writeln((*rec)["am"]);
             debug assert(false);
@@ -39,13 +39,13 @@ void clipRead(SAMRecord* rec, ReadStatus* status)
             new_cigar = new_cigar[1 .. $];
         assert(new_cigar[0].op == Ops.SOFT_CLIP);
 
-        rec.b.core.pos += art_cigar.ref_bases_covered - new_cigar[0].length;
+        rec.b.core.pos += art_cigar.alignedLength - new_cigar[0].length;
 
         //trim sequence
-        rec.sequence = rec.sequence[art_cigar.ref_bases_covered .. $];
-        rec.qscores(qual[art_cigar.ref_bases_covered .. $]);
+        rec.sequence = rec.sequence[art_cigar.alignedLength .. $];
+        rec.qscores(qual[art_cigar.alignedLength .. $]);
 
-        auto len_to_clip = art_cigar.ref_bases_covered;
+        auto len_to_clip = art_cigar.alignedLength;
 
         while (len_to_clip > 0)
         {
@@ -67,7 +67,7 @@ void clipRead(SAMRecord* rec, ReadStatus* status)
                 new_cigar = new_cigar[1 .. $];
             }
         }
-        new_cigar = CigarOp(art_cigar.ref_bases_covered, Ops.HARD_CLIP) ~ new_cigar;
+        new_cigar = CigarOp(art_cigar.alignedLength, Ops.HARD_CLIP) ~ new_cigar[];
     }
     if (status.art_right)
     {
@@ -76,13 +76,13 @@ void clipRead(SAMRecord* rec, ReadStatus* status)
                 .drop(1).front.splitter(",").drop(2).front);
 
         //assert right side is soft-clipped 
-        if (art_cigar.ops[$ - 1].op != Ops.SOFT_CLIP)
+        if (art_cigar[$ - 1].op != Ops.SOFT_CLIP)
         {
             writeln((*rec)["am"]);
             debug assert(false);
         else return;
         }
-        if (art_cigar.ref_bases_covered > rec.length)
+        if (art_cigar.alignedLength > rec.length)
         {
             writeln((*rec)["am"]);
             debug assert(false);
@@ -90,13 +90,13 @@ void clipRead(SAMRecord* rec, ReadStatus* status)
         }
 
         //trim sequence
-        rec.sequence = rec.sequence[0 .. $ - art_cigar.ref_bases_covered];
-        rec.qscores(qual[0 .. $ - art_cigar.ref_bases_covered]);
+        rec.sequence = rec.sequence[0 .. $ - art_cigar.alignedLength];
+        rec.qscores(qual[0 .. $ - art_cigar.alignedLength]);
 
         if (new_cigar[$ - 1].op == Ops.HARD_CLIP)
             new_cigar = new_cigar[0 .. $ - 1];
         assert(new_cigar[$ - 1].op == Ops.SOFT_CLIP);
-        auto len_to_clip = art_cigar.ref_bases_covered;
+        auto len_to_clip = art_cigar.alignedLength;
 
         while (len_to_clip > 0)
         {
@@ -118,15 +118,15 @@ void clipRead(SAMRecord* rec, ReadStatus* status)
                 new_cigar = new_cigar[0 .. $ - 1];
             }
         }
-        new_cigar = new_cigar ~ CigarOp(art_cigar.ref_bases_covered, Ops.HARD_CLIP);
+        new_cigar = new_cigar[] ~ CigarOp(art_cigar.alignedLength, Ops.HARD_CLIP);
     }
-    rec.cigar = Cigar(new_cigar);
+    rec.cigar = new_cigar;
 }
 
 SAMRecord makeArtifactRecord(SAMRecord* original, bool left, bool mate)
 {
-    auto rec = new SAMRecord(bam_dup1(original.b), original.h);
-    rec.sequence = reverse_complement_sam_record(&rec);
+    auto rec = SAMRecord(bam_dup1(original.b), original.h);
+    rec.sequence = reverse_complement_sam_record(rec);
     // writeln(original.queryName);
     // writeln(rec["am"].toString);
     // rec.q_scores!false(cast(char[])(cast(ubyte[])((*original).qscores!false).retro.array));
@@ -160,10 +160,20 @@ SAMRecord makeArtifactRecord(SAMRecord* original, bool left, bool mate)
     return rec;
 }
 
-void filter(bool clip)(string[] args, ubyte con)
+void filter(bool clip)(string cl, string[] args, ubyte con)
 {
     auto bam = SAMReader(args[1]);
-    auto out_bam = getWriter(con, bam.header);
+    auto header = bam.header.dup;
+    header.addLine(
+        RecordType.PG, 
+        "ID", "fade-annotate",
+        "PN", "fade",
+        "VN", VERSION,
+        "PP", header.valueByPos(RecordType.PG, header.numRecords(RecordType.PG) - 1, "ID"), 
+        "CL", cl
+        );
+    auto out_bam = getWriter(con, header);
+    
     Stats stats;
     static if (clip == true)
     {

@@ -3,6 +3,7 @@ import std.stdio;
 import std.getopt;
 import std.parallelism : defaultPoolThreads;
 import filter : filter;
+import std.array : join;
 import anno;
 import stats;
 import remap;
@@ -24,6 +25,7 @@ string full_help = "Fragmentase Artifact Detection and Elimination\n" ~ "usage: 
 
 void main(string[] args)
 {
+    auto cl = join(args," ");
     if (args.length == 1)
     {
         auto res = getopt(args, config.bundling);
@@ -60,7 +62,7 @@ void main(string[] args)
             stderr.writeln("please use only one of the b or u flags");
             return;
         }
-        annotate(args[1 .. $], con, artifact_floor_length, align_buffer_size);
+        annotate(cl, args[1 .. $], con, artifact_floor_length, align_buffer_size);
     }
     else if (args[1] == "out")
     {
@@ -89,9 +91,9 @@ void main(string[] args)
             return;
         }
         if (clip)
-            filter!(true)(args[1 .. $], con);
+            filter!(true)(cl, args[1 .. $], con);
         else
-            filter!(false)(args[1 .. $], con);
+            filter!(false)(cl, args[1 .. $], con);
     }
     else if (args[1] == "extract")
     {
@@ -117,7 +119,7 @@ void main(string[] args)
             stderr.writeln("please use only one of the b or u flags");
             return;
         }
-        remapArtifacts(args[1 .. $], con);
+        remapArtifacts(cl, args[1 .. $], con);
     }
     else if (args[1] == "stats")
     {
