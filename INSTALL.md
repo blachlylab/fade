@@ -118,6 +118,7 @@ Go to the [latest release](https://github.com/blachlylab/fade/releases/latest).
 wget https://github.com/blachlylab/fade/releases/download/v0.2.2/fade
 sudo cp fade /usr/local/bin
 ```
+If you have linker errors with libphobos you may need to install `libphobos2-ldc-shared94`. If this is not availible for your system you may need to build from source. 
 </details>
 <details>
 <summary> Building FADE from source </summary>
