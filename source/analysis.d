@@ -12,7 +12,7 @@ import std.stdio;
 struct Align_Result
 {
     string alignment;
-    ubyte[] bq;
+    const(char)[] bq;
     string stem_loop;
     string stem_loop_rc;
 
@@ -89,7 +89,7 @@ Align_Result align_clip(bool left)(SAMReader* bam, IndexedFastaFile* fai, Parasa
                 plen = plen > rec.length ? rec.length : plen;
                 alignment.stem_loop = rec.sequence[0 .. plen].idup;
                 alignment.stem_loop_rc = q_seq[$ - plen .. $];
-                alignment.bq = cast(ubyte[]) rec.qscores[0 .. plen];
+                alignment.bq = rec.qscoresPhredScaled[0 .. plen];
             }
         }
     }
@@ -115,7 +115,7 @@ Align_Result align_clip(bool left)(SAMReader* bam, IndexedFastaFile* fai, Parasa
                 plen = plen > rec.length ? rec.length : plen;
                 alignment.stem_loop = rec.sequence[$ - plen .. $].idup;
                 alignment.stem_loop_rc = q_seq[0 .. plen];
-                alignment.bq = cast(ubyte[]) rec.qscores[$ - plen .. $];
+                alignment.bq = rec.qscoresPhredScaled[$ - plen .. $];
             }
         }
     }

@@ -83,7 +83,7 @@ void annotate(string cl,string[] args, ubyte con, int artifact_floor_length, int
         rec["am"] = align_1.alignment ~ ";" ~ align_2.alignment;
         rec["as"] = align_1.stem_loop ~ ";" ~ align_2.stem_loop;
         rec["ar"] = align_1.stem_loop_rc ~ ";" ~ align_2.stem_loop_rc;
-        rec["ab"] = (cast(char[])(align_1.bq ~ align_2.bq)).idup;
+        rec["ab"] = (cast(char[])(align_1.bq ~ ";" ~ align_2.bq)).idup;
         //assert(rec["rs"].check!ubyte || rec["rs"].check!byte);
         //assert(rec["am"].check!string);
         //assert(rec["ab"].check!(ubyte[]));

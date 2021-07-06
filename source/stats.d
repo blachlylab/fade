@@ -130,7 +130,7 @@ void statsfile(string[] args)
             towrite ~= (float(rec.qscores.sum) / float(rec.length)).to!string;
             auto bq = rec["ab"].toString[0 .. towrite[$ - 4].length].dup;
             towrite ~= (float(bq.sum) / float(towrite[$ - 4].length)).to!string;
-            bq[] = bq[] + 33;
+            // bq[] = bq[] + 33;
             towrite ~= bq.idup;
             towrite ~= towrite[$ - 1][0 .. p.endQuery + 1];
 
@@ -171,7 +171,7 @@ void statsfile(string[] args)
             towrite ~= (float(rec.qscores().sum) / float(rec.length)).to!string;
             auto bq = rec["ab"].toString[$ - towrite[$ - 4].length .. $].dup;
             towrite ~= (float(bq.sum) / float(towrite[$ - 4].length)).to!string;
-            bq[] = bq[] + 33;
+            // bq[] = bq[] + 33;
             towrite ~= bq.idup;
             towrite ~= towrite[$ - 1][0 .. p.endQuery + 1];
 
