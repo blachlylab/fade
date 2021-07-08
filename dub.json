@@ -12,7 +12,8 @@
 	"configurations":[
 		{
 			"name":"shared",
-			"targetType": "executable"
+			"targetType": "executable",
+			"libs": ["hts","parasail"]
 		}
 	]
 }
