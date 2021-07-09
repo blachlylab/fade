@@ -1,5 +1,6 @@
 module remap;
 import dhtslib.sam;
+import dhtslib.coordinates;
 import htslib.sam : BAM_FREVERSE;
 import htslib.hts_log;
 import std.algorithm.mutation : reverse;
@@ -46,7 +47,7 @@ void remapArtifacts(string cl, string[] args, ubyte con)
 
             newRec.queryName = rec.queryName.idup;
             newRec.tid = bam.header.targetId(am_fields[0]);
-            newRec.pos = am_fields[1].to!int;
+            newRec.pos = ZB(am_fields[1].to!long);
             if (rec.isReversed())
             {
                 newRec.flag = 0;
@@ -67,7 +68,7 @@ void remapArtifacts(string cl, string[] args, ubyte con)
 
             newRec.queryName = rec.queryName.idup;
             newRec.tid = bam.header.targetId(am_fields[0]);
-            newRec.pos = am_fields[1].to!int;
+            newRec.pos = ZB(am_fields[1].to!long);
             if (rec.isReversed())
             {
                 newRec.flag = 0;

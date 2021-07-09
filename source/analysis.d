@@ -60,7 +60,8 @@ Align_Result align_clip(bool left)(SAMReader* bam, IndexedFastaFile* fai, Parasa
 
     m.lock();
     //get read region seq
-    ref_seq = fai.fetchSequence(bam.header.targetName(rec.tid).idup, start, end).toUpper;
+    auto coords = ChromCoordinates!(CoordSystem.zbho)(bam.header.targetName(rec.tid).idup,ZBHO(start, end));
+    ref_seq = fai.fetchSequence(coords).toUpper;
     m.unlock();
 
     //align

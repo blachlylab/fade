@@ -151,12 +151,12 @@ SAMRecord makeArtifactRecord(SAMRecord* original, bool left, bool mate)
     }
     if (left)
     {
-        rec.pos = rec["am"].to!string.splitter(";").front.splitter(",").drop(1).front.to!int;
+        rec.pos = ZB(rec["am"].to!string.splitter(";").front.splitter(",").drop(1).front.to!long);
     }
     else
     {
-        rec.pos = rec["am"].to!string.splitter(";").drop(1)
-            .front.splitter(",").drop(1).front.to!int;
+        rec.pos = ZB(rec["am"].to!string.splitter(";").drop(1)
+            .front.splitter(",").drop(1).front.to!long);
     }
     return rec;
 }
