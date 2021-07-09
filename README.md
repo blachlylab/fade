@@ -10,7 +10,7 @@ shown in recent years to be a cost and time effective alternative to physical sh
 ### Installation
 Our [documentation](https://github.com/blachlylab/fade/blob/master/INSTALL.md) has information on installing fade and its prerequisites. Or you can install `fade` via conda.
 ```
-conda install -c bioconda recontig
+conda install -c bioconda fade
 ```
 
 ### Running FADE 
