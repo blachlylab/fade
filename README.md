@@ -7,7 +7,11 @@ shown in recent years to be a cost and time effective alternative to physical sh
  We discovered that enzymatic fragmentation leads to unexpected alteration of the original DNA source 
  material. We provide fade as a method of identification and removal of enymatic fragmentation artifacts.
 
-Our [documentation](https://github.com/blachlylab/fade/blob/master/INSTALL.md) has information on installing fade and its prerequisites.
+### Installation
+Our [documentation](https://github.com/blachlylab/fade/blob/master/INSTALL.md) has information on installing fade and its prerequisites. Or you can install `fade` via conda.
+```
+conda install -c bioconda recontig
+```
 
 ### Running FADE 
 ```
