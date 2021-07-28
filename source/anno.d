@@ -15,7 +15,7 @@ import util;
 
 void annotate(string cl,string[] args, ubyte con, int artifact_floor_length, int align_buffer_size)
 {
-    hts_log_warning("fade annotate","Output SAM/BAM will not be sorted (reguardless of prior sorting)");
+    hts_log_warning("fade annotate","Output SAM/BAM will not be sorted (regardless of prior sorting)");
     // open bam read and writer
     // also modify header
     auto bam = SAMReader(args[1]);
@@ -81,14 +81,18 @@ void annotate(string cl,string[] args, ubyte con, int artifact_floor_length, int
         // report read status
         rec["rs"] = status.raw;
 
-        // report both artifact cigars
-        rec["am"] = align_1.alignment ~ ";" ~ align_2.alignment;
-        // report both predicted stem loops
-        rec["as"] = align_1.stem_loop ~ ";" ~ align_2.stem_loop;
-        // report both rc'd predicted stem loops
-        rec["ar"] = align_1.stem_loop_rc ~ ";" ~ align_2.stem_loop_rc;
-        // report both artifact quality seqs
-        rec["ab"] = (cast(char[])(align_1.bq ~ ";" ~ align_2.bq)).idup;
+        // if artifact indicated
+        // write other data
+        if(status.art_left | status.art_right){
+            // report both artifact cigars
+            rec["am"] = align_1.alignment ~ ";" ~ align_2.alignment;
+            // report both predicted stem loops
+            rec["as"] = align_1.stem_loop ~ ";" ~ align_2.stem_loop;
+            // report both rc'd predicted stem loops
+            rec["ar"] = align_1.stem_loop_rc ~ ";" ~ align_2.stem_loop_rc;
+            // report both artifact quality seqs
+            rec["ab"] = (align_1.bq ~ ";" ~ align_2.bq).idup;
+        }
 
         // write record
         m.lock;

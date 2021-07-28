@@ -175,7 +175,7 @@ void filter(bool clip)(string cl, string[] args, ubyte con)
     Stats stats;
     static if (clip == true)
     {
-        hts_log_warning("fade out","Using the -c flag means the output SAM/BAM will not be sorted (reguardless of prior sorting)");
+        hts_log_warning("fade out","Using the -c flag means the output SAM/BAM will not be sorted (regardless of prior sorting)");
         foreach (SAMRecord rec; bam.allRecords())
         {
             stats.read_count++;
