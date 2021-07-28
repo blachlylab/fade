@@ -16,8 +16,9 @@ import util;
 void annotate(string cl,string[] args, ubyte con, int artifact_floor_length, int align_buffer_size)
 {
     hts_log_warning("fade annotate","Output SAM/BAM will not be sorted (reguardless of prior sorting)");
+    // open bam read and writer
+    // also modify header
     auto bam = SAMReader(args[1]);
-    // auto fai=IndexedFastaFile(args[2]);
     auto header = bam.header.dup;
     header.addLine(
         RecordType.PG, 
@@ -29,28 +30,18 @@ void annotate(string cl,string[] args, ubyte con, int artifact_floor_length, int
         );
     auto out_bam = getWriter(con, header);
     
-    //0 Read is Softclipped
-    // sc
-    //1 Read has Supp Alignment
-    // sup
-    //2   Supp is on opposite strand from read
-    // sup_opp_strand
-    //3   Sc doesn't meet qual cutoff
-    // qual
-    //4   Read is artifact
-    // art
-    //5 Artifact aligns to mate region and not read
-    // art_mate
-    //6   Artifact is greater than 5 bp long but shorter than 15 (TODO: set empirically)
-    // art_short
-    //7 supp alignment not close to read or mate
-    // far
+    // initialize parasail profile
     auto p = Parasail("ACTGN", 2, -3, 10, 2);
     auto m = new Mutex();
     auto fai = IndexedFastaFile(args[2]);
+
+    // process reads in parallel
     foreach (SAMRecord rec; parallel(bam.allRecords))
     {
         ReadStatus status;
+
+        // if read is supp, sec, or not mapped
+        // set status and write out
         if (rec.isSupplementary() || rec.isSecondary() || !rec.isMapped()
                 || rec.cigar[].filter!(x => x.op == Ops.SOFT_CLIP).count() == 0)
         {
@@ -60,33 +51,46 @@ void annotate(string cl,string[] args, ubyte con, int artifact_floor_length, int
             m.unlock;
             continue;
         }
+
+        // check clips
         CigarOp[2] clips = parse_clips(rec.cigar);
         if (clips[0].length != 0 || clips[1].length != 0)
             status.sc = true;
+
+        // check sup alignment
         if (rec["SA"].exists)
             status.sup = true;
-        //left soft-clip (left on reference not 5' neccesarily)
+
+        // if left soft-clip (left on reference not 5' neccesarily)
+        // perform realignment of rc'd read
         Align_Result align_1, align_2;
         if (clips[0].length != 0)
         {
             align_1 = align_clip!true(&bam, &fai, &p, rec, &status,
                     clips[0].length(), &m, artifact_floor_length, align_buffer_size);
         }
-        //right soft-clip
+
+        // if right soft-clip (right on reference not 3' neccesarily)
+        // perform realignment of rc'd read
         if (clips[1].length() != 0)
         {
             align_2 = align_clip!false(&bam, &fai, &p, rec, &status,
                     clips[1].length(), &m, artifact_floor_length, align_buffer_size);
         }
-        // writeln(status.raw);
+        
+        // report read status
         rec["rs"] = status.raw;
+
+        // report both artifact cigars
         rec["am"] = align_1.alignment ~ ";" ~ align_2.alignment;
+        // report both predicted stem loops
         rec["as"] = align_1.stem_loop ~ ";" ~ align_2.stem_loop;
+        // report both rc'd predicted stem loops
         rec["ar"] = align_1.stem_loop_rc ~ ";" ~ align_2.stem_loop_rc;
+        // report both artifact quality seqs
         rec["ab"] = (cast(char[])(align_1.bq ~ ";" ~ align_2.bq)).idup;
-        //assert(rec["rs"].check!ubyte || rec["rs"].check!byte);
-        //assert(rec["am"].check!string);
-        //assert(rec["ab"].check!(ubyte[]));
+
+        // write record
         m.lock;
         out_bam.write(rec);
         m.unlock;

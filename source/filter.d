@@ -128,9 +128,6 @@ SAMRecord makeArtifactRecord(SAMRecord* original, bool left, bool mate)
 {
     auto rec = SAMRecord(bam_dup1(original.b), original.h);
     rec.sequence = reverse_complement_sam_record(rec);
-    // writeln(original.queryName);
-    // writeln(rec["am"].toString);
-    // rec.q_scores!false(cast(char[])(cast(ubyte[])((*original).qscores!false).retro.array));
     if (left)
     {
         rec.cigar = cigarFromString(rec["am"].toString.splitter(";")
@@ -208,8 +205,6 @@ void filter(bool clip)(string cl, string[] args, ubyte con)
 
         foreach (recs; bam.allRecords.chunkBy!((a, b) => a.queryName == b.queryName))
         {
-            // recs.map!(x=>x.queryName).each!writeln;
-            // bam.fp.fp.bgzf.is_write.writeln;
             auto grouped_reads = recs.array;
             bool art_found = false;
             foreach (rec; grouped_reads)
@@ -219,7 +214,6 @@ void filter(bool clip)(string cl, string[] args, ubyte con)
                 auto tag = rec["rs"];
                 if (!tag.exists)
                 {
-                    // out_bam.writeRecord(rec);
                     continue;
                 }
                 val.raw = tag.to!ubyte;

@@ -121,7 +121,6 @@ Align_Result align_clip(bool left)(SAMReader* bam, IndexedFastaFile* fai, Parasa
         }
     }
 
-    // res.close();
     return alignment;
 }
 
@@ -157,25 +156,13 @@ string self_align(bool left)(SAMReader* bam, string fai_f, Parasail* p,
         return "";
     static if (left)
     {
-        // if(res.cigar.ops[$-1].op==Ops.EQUAL){
-        //     if(res.result.score>cutoff){
-        // status.art_left=true;
-        // status.mate_left=false;
         align_string = rec.queryName.idup ~ "," ~ (res.position).to!string ~ "," ~ res
             .cigar.toString;
-        //     }
-        // }
     }
     else
     {
-        // if(res.cigar.ops[0].op==Ops.EQUAL){
-        //     if(res.result.score>cutoff){
-        // status.art_right=true;
-        // status.mate_right=false;
         align_string = rec.queryName.idup ~ "," ~ (res.position).to!string ~ "," ~ res
             .cigar.toString;
-        //     }
-        // }
     }
     res.close();
     return align_string;
