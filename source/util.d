@@ -57,17 +57,6 @@ pragma(inline, true) CigarOp[2] parse_clips(Cigar cigar)
     return clips;
 }
 
-//quick and dirty qscore average
-pragma(inline, true) ushort avg_qscore(const(char)[] q)
-{
-    ushort score = q[0];
-    foreach (c; q)
-    {
-        score += c;
-        score >>= 1;
-    }
-    return score;
-}
 
 SAMWriter getWriter(ubyte con, SAMHeader hdr)
 {
