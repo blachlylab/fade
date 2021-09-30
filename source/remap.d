@@ -83,5 +83,4 @@ void remapArtifacts(string cl, string[] args, ubyte con)
             out_bam.write(newRec);
         }
     }
-    out_bam.close;
 }

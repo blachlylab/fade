@@ -19,8 +19,8 @@ struct Align_Result
 }
 
 /// Align the sofclip to the read region or the mate region
-Align_Result align_clip(bool left)(SAMReader* bam, IndexedFastaFile* fai, Parasail* p,
-        SAMRecord rec, ReadStatus* status, uint clip_len, Mutex* m,
+Align_Result align_clip(bool left)(IndexedFastaFile fai, Parasail p,
+        SAMRecord rec, ReadStatus * status, uint clip_len,
         int artifact_floor_length, int align_buffer_size)
 {
     string q_seq;
@@ -53,16 +53,13 @@ Align_Result align_clip(bool left)(SAMReader* bam, IndexedFastaFile* fai, Parasa
     end = rec.pos() + rec.cigar.alignedLength() + align_buffer_size;
 
     //if end>length of chrom: end is length of chrom
-    if (end > bam.header.targetLength(rec.tid))
+    if (end > rec.h.targetLength(rec.tid))
     {
-        end = bam.header.targetLength(rec.tid);
+        end = rec.h.targetLength(rec.tid);
     }
 
-    m.lock();
     //get read region seq
-    auto coords = ChromCoordinates!(CoordSystem.zbho)(bam.header.targetName(rec.tid).idup,ZBHO(start, end));
-    ref_seq = fai.fetchSequence(coords).toUpper;
-    m.unlock();
+    ref_seq = fai.fetchSequence(rec.h.targetName(rec.tid).idup, ZBHO(start, end)).toUpper;
 
     //align
     auto res = p.sw_striped(q_seq, ref_seq);
@@ -72,17 +69,17 @@ Align_Result align_clip(bool left)(SAMReader* bam, IndexedFastaFile* fai, Parasa
 
     static if (left)
     {
-        if (res.cigar[$ - 1].op == Ops.EQUAL)
+        if (cast(Ops)res.cigar[$ - 1].op == Ops.EQUAL)
         {
             if (res.score > cutoff)
             {
-                auto clips = parse_clips(res.cigar);
+                auto clips = parse_clips(Cigar(cast(CigarOp[])res.cigar[]));
                 if (clips[1].length != 0 || clips[0].length == 0)
                     return alignment;
 
                 status.art_left = true;
                 status.mate_left = false;
-                alignment.alignment = bam.header.targetName(rec.tid).idup ~ "," ~ (start + res.position)
+                alignment.alignment = rec.h.targetName(rec.tid).idup ~ "," ~ (start + res.position)
                     .to!string ~ "," ~ res.cigar.toString;
                 auto overlap = start + res.position >= rec.pos - clip_len
                     ? start + res.position - (rec.pos - clip_len) : 0;
@@ -96,17 +93,17 @@ Align_Result align_clip(bool left)(SAMReader* bam, IndexedFastaFile* fai, Parasa
     }
     else
     {
-        if (res.cigar[0].op == Ops.EQUAL)
+        if (cast(Ops)res.cigar[0].op == Ops.EQUAL)
         {
             if (res.score > cutoff)
             {
-                auto clips = parse_clips(res.cigar);
+                auto clips = parse_clips(Cigar(cast(CigarOp[])res.cigar[]));
                 if (clips[0].length != 0 || clips[1].length == 0)
                     return alignment;
 
                 status.art_right = true;
                 status.mate_right = false;
-                alignment.alignment = bam.header.targetName(rec.tid).idup ~ "," ~ (start + res.position)
+                alignment.alignment = rec.h.targetName(rec.tid).idup ~ "," ~ (start + res.position)
                     .to!string ~ "," ~ res.cigar.toString;
                 auto overlap = rec.pos + rec.cigar.alignedLength + clip_len >= start
                     + res.position + res.cigar.alignedLength
@@ -125,8 +122,8 @@ Align_Result align_clip(bool left)(SAMReader* bam, IndexedFastaFile* fai, Parasa
 }
 
 /// Align the sofclip to the read region or the mate region
-string self_align(bool left)(SAMReader* bam, string fai_f, Parasail* p,
-        SAMRecord* rec, ReadStatus* status, uint clip_len)
+string self_align(bool left)(SAMHeader bam, Parasail p,
+        SAMRecord rec, ReadStatus status, uint clip_len)
 {
     string q_seq;
     const(char)[] qual_seq;

@@ -108,7 +108,7 @@ void statsfile(string[] args)
             towrite ~= bam.header.targetName(rec.tid).idup;
             towrite ~= rec.pos.pos.to!string;
             towrite ~= rec.cigar.toString;
-            towrite ~= (rec.pos - rec.cigar[].filter!(x => x.op == Ops.SOFT_CLIP).front.length)
+            towrite ~= (rec.pos.pos - rec.cigar[].filter!(x => x.op == Ops.SOFT_CLIP).front.length)
                 .to!string;
             towrite ~= rec.pos.pos.to!string;
             towrite ~= am_fields[0];
@@ -149,8 +149,8 @@ void statsfile(string[] args)
             towrite ~= bam.header.targetName(rec.tid).idup;
             towrite ~= rec.pos.pos.to!string;
             towrite ~= rec.cigar.toString;
-            towrite ~= (rec.pos + rec.cigar.alignedLength).to!string;
-            towrite ~= (rec.pos + rec.cigar.alignedLength + rec.cigar[].filter!(
+            towrite ~= (rec.pos + rec.cigar.alignedLength).pos.to!string;
+            towrite ~= (rec.pos.pos + rec.cigar.alignedLength + rec.cigar[].filter!(
                     x => x.op == Ops.SOFT_CLIP).array[$ - 1].length).to!string;
             towrite ~= am_fields[0];
             towrite ~= am_fields[1];

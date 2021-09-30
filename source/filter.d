@@ -232,6 +232,5 @@ void filter(bool clip)(string cl, string[] args, ubyte con)
             }
         }
     }
-    out_bam.close;
     stats.print;
 }
