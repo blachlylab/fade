@@ -7,7 +7,7 @@
 	"license": "MIT",
 	"dependencies": {
 		"dparasail":"~>0.3.0",
-		"dhtslib": "~>0.13.1+htslib-1.10"
+		"dhtslib": "~>0.13.2+htslib-1.10"
 	},
 	"configurations":[
 		{
