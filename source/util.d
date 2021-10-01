@@ -3,8 +3,7 @@ import dhtslib;
 import htslib.hts : seq_nt16_str;
 import htslib.sam : bam_hdr_t;
 import std.stdio;
-
-enum VERSION = "v0.3.0";
+public import _version;
 
 // string rc(Range)(Range seq){
 //seq.array.reverse;

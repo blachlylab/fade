@@ -1,0 +1,1 @@
+printf 'module _version;\nenum VERSION="%s";\n' $(git describe --tags) > source/version.d

@@ -1,3 +1,4 @@
 *.bed
 *.bam
 *.sam
+source/version.d
