@@ -202,12 +202,42 @@ void filter(bool clip)(string cl, string[] args, ubyte con)
     static if (clip == false)
     {
         import std.algorithm.iteration : chunkBy;
-
-        foreach (recs; bam.allRecords.chunkBy!((a, b) => a.queryName == b.queryName))
-        {
-            auto grouped_reads = recs.array;
-            bool art_found = false;
-            foreach (rec; grouped_reads)
+        auto recordRange = bam.allRecords;
+        auto origRange = recordRange.save;
+        recordRange.popFront;
+        if(origRange.front.queryName == recordRange.front.queryName){
+            hts_log_warning("fade out","Output looks name-sorted, ejecting all reads with same readname if any have an artifact");
+            foreach (recs; bam.allRecords.chunkBy!((a, b) => a.queryName == b.queryName))
+            {
+                auto originalGroup = recs.save;
+                bool art_found = false;
+                foreach (rec; recs)
+                {
+                    stats.read_count++;
+                    ReadStatus val;
+                    auto tag = rec["rs"];
+                    if (!tag.exists)
+                    {
+                        continue;
+                    }
+                    val.raw = tag.to!ubyte;
+                    stats.parse(val);
+                    if (val.art_left | val.art_right)
+                    {
+                        art_found = true;
+                    }
+                }
+                if (!art_found)
+                {
+                    foreach (rec; originalGroup)
+                    {
+                        out_bam.write(rec);
+                    }
+                }
+            }
+        }else{
+            hts_log_warning("fade out","Output doesn't look name-sorted, ejecting by only reads with an artifact");
+            foreach (rec; origRange)
             {
                 stats.read_count++;
                 ReadStatus val;
@@ -218,14 +248,7 @@ void filter(bool clip)(string cl, string[] args, ubyte con)
                 }
                 val.raw = tag.to!ubyte;
                 stats.parse(val);
-                if (val.art_left | val.art_right)
-                {
-                    art_found = true;
-                }
-            }
-            if (!art_found)
-            {
-                foreach (rec; grouped_reads)
+                if (!(val.art_left | val.art_right))
                 {
                     out_bam.write(rec);
                 }
