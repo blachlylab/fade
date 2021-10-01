@@ -1,4 +1,4 @@
 *.bed
 *.bam
 *.sam
-source/version.d
+source/_version.d
