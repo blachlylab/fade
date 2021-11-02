@@ -25,7 +25,9 @@ jobs:
             sudo apt-get update && sudo apt-get install -y build-essential autoconf zlib1g-dev libbz2-dev liblzma-dev libcurl4-openssl-dev libssl-dev
       - name: Get htslib version
         id: get-htslib-version
-        run: echo "::set-output name=htslib_version::$(grep "+htslib" dub.json | sed -E 's/^.*+htslib-([0-9.]+)"/\1/g')"
+        run: |
+            grep "+htslib" dub.json | sed -E 's/^.*+htslib-([0-9.]+)"/\1/g' > htslib_version.txt
+            echo "::set-output name=htslib_version::$(cat htslib_version.txt)"
 
       - name: Cache htslib
         id: cache-htslib
