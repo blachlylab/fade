@@ -1,9 +1,9 @@
-name: build
+name: linux ldc build
 on: [push, pull_request]
 
 jobs:
   linux-build:
-    name: Dub build
+    name: linux ldc build
     strategy:
       matrix:
         os: [ubuntu-latest]
@@ -44,11 +44,20 @@ jobs:
             cd htslib-${{ steps.get-htslib-version.outputs.htslib_version }}
             ./configure
             make
+            
       - name: Install htslib
         run: |
             cd htslib-${{ steps.get-htslib-version.outputs.htslib_version }}
             sudo make install
             sudo ldconfig
+
+      - name: Install parasail
+        run: |
+            wget https://github.com/jeffdaily/parasail/releases/download/v2.4.3/parasail-2.4.3-manylinux1_x86_64.tar.gz
+            tar -xf parasail-2.4.3-manylinux1_x86_64.tar.gz
+            cd parasail-2.4.3-manylinux1_x86_64/lib
+            sudo cp * /usr/local/lib
+
       - name: build
         run: dub build
         env:

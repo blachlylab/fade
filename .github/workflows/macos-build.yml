@@ -3,7 +3,7 @@ on: [push, pull_request]
 
 jobs:
   macos-build:
-    name: macos dub build
+    name: macos ldc build
     strategy:
       matrix:
         os: [macos-latest]
@@ -26,7 +26,7 @@ jobs:
       - name: Get htslib version
         id: get-htslib-version
         run: |
-            grep "+htslib" dub.json | sed -E 's/^.*+htslib-([0-9.]+)"/\1/g' > htslib_version.txt
+            grep "+htslib" dub.json | sed -E 's/^.*\+htslib-([0-9.]+)"/\1/g' > htslib_version.txt
             echo "::set-output name=htslib_version::$(cat htslib_version.txt)"
 
       - name: Cache htslib
@@ -44,6 +44,14 @@ jobs:
             cd htslib-${{ steps.get-htslib-version.outputs.htslib_version }}
             ./configure
             make
+
+      - name: Install parasail
+        run: |
+            wget https://github.com/jeffdaily/parasail/releases/download/v2.4.3/parasail-2.4.3-Darwin-10.13.6.tar.gz
+            tar -xf parasail-2.4.3-Darwin-10.13.6.tar.gz
+            cd parasail-2.4.3-Darwin-10.13.6/lib
+            sudo cp * /usr/local/lib
+
       - name: Run tests
         run: dub build
         env:
