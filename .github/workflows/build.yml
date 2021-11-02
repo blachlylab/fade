@@ -38,7 +38,7 @@ jobs:
         if: steps.cache-htslib.outputs.cache-hit != 'true'
         run: |
             wget https://github.com/samtools/htslib/releases/download/${{ steps.get-htslib-version.outputs.htslib_version }}/htslib-${{ steps.get-htslib-version.outputs.htslib_version }}.tar.bz2
-            tar -xf htslib-${{ steps.get-htslib-version.outputs.htslib_version }}
+            tar -xf htslib-${{ steps.get-htslib-version.outputs.htslib_version }}.tar.bz2
             cd htslib-${{ steps.get-htslib-version.outputs.htslib_version }}
             ./configure
             make
