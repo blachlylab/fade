@@ -1,0 +1,48 @@
+name: macos ldc build
+on: [push, pull_request]
+
+jobs:
+  macos-build:
+    name: macos dub build
+    strategy:
+      matrix:
+        os: [macos-latest]
+        dc: [ldc-latest]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: recursive
+
+      - name: Install D compiler
+        uses: dlang-community/setup-dlang@v1
+        with:
+          compiler: ${{ matrix.dc }}
+
+      - name: Install htslib deps
+        run: |
+            brew install xz autoconf automake cython wget
+      - name: Get htslib version
+        id: get-htslib-version
+        run: echo "::set-output name=htslib_version::$(grep "+htslib" dub.json | sed -E 's/^.*+htslib-([0-9.]+)"/\1/g')"
+
+      - name: Cache htslib
+        id: cache-htslib
+        uses: actions/cache@v2
+        with:
+          path: htslib
+          key: ${{ runner.os}}-htslib-${{ steps.get-htslib-version.outputs.htslib_version }}
+
+      - name: Build htslib
+        if: steps.cache-htslib.outputs.cache-hit != 'true'
+        run: |
+            wget https://github.com/samtools/htslib/releases/download/${{ steps.get-htslib-version.outputs.htslib_version }}/htslib-${{ steps.get-htslib-version.outputs.htslib_version }}.tar.bz2
+            tar -xf htslib-${{ steps.get-htslib-version.outputs.htslib_version }}.tar.bz2
+            cd htslib-${{ steps.get-htslib-version.outputs.htslib_version }}
+            ./configure
+            make
+      - name: Run tests
+        run: dub build
+        env:
+          LIBRARY_PATH: /usr/local/lib
