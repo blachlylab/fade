@@ -38,13 +38,13 @@ jobs:
         if: steps.cache-htslib.outputs.cache-hit != 'true'
         run: |
             wget https://github.com/samtools/htslib/releases/download/${{ steps.get-htslib-version.outputs.htslib_version }}/htslib-${{ steps.get-htslib-version.outputs.htslib_version }}.tar.bz2
-            tar -xf htslib-*
-            cd htslib-*
+            tar -xf htslib-${{ steps.get-htslib-version.outputs.htslib_version }}
+            cd htslib-${{ steps.get-htslib-version.outputs.htslib_version }}
             ./configure
             make
       - name: Install htslib
         run: |
-            cd htslib-*
+            cd htslib-${{ steps.get-htslib-version.outputs.htslib_version }}
             sudo make install
             sudo ldconfig
       - name: build
