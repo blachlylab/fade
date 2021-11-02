@@ -4,9 +4,11 @@ Install [htslib](http://www.htslib.org/download/) and [parasail](https://github.
 <details>
 <summary> Prerequisites: htslib & parasail </summary>
 
-## Install htslib 1.9
+## Install htslib
 
-Due to extensive ABI and API changes in htslib 1.10, we currently require htslib 1.9 as [dhtslib](https://github.com/blachlylab/dhtslib) does not currently support htslib 1.10
+~~Due to extensive ABI and API changes in htslib 1.10, we currently require htslib 1.9 as [dhtslib](https://github.com/blachlylab/dhtslib) does not currently support htslib 1.10~~
+
+[dhtslib](https://github.com/blachlylab/dhtslib) now supports newer versions of htslib.
 
 Install [htslib](http://www.htslib.org/download/) prerequisites.
 ```
@@ -34,12 +36,11 @@ OpenSUSE
 
 sudo zypper install autoconf automake make gcc perl zlib-devel libbz2-devel xz-devel libcurl-devel libopenssl-devel
 ```
-In addition, please make sure ```wget``` and ```bzip2``` are installed in order to follow the rest of the instructions.
-Now download and make htslib 1.9. This specifically must be version [1.9](https://github.com/samtools/htslib/releases/tag/1.9).
+In addition, please make sure ```wget``` and ```bzip2``` are installed in order to follow the rest of the instructions. If using an older version of FADE(< v0.3.0), you will need to install htslib [1.9](https://github.com/samtools/htslib/releases/tag/1.9). Otherwise install any htslib > 1.9.
 ```
-wget https://github.com/samtools/htslib/releases/download/1.9/htslib-1.9.tar.bz2
-tar -xjf htslib-1.9.tar.bz2
-cd htslib-1.9
+wget https://github.com/samtools/htslib/releases/download/1.14/htslib-1.14.tar.bz2
+tar -xjf htslib-1.14.tar.bz2
+cd htslib-1.14
 ./configure
 make 
 sudo make install
@@ -48,9 +49,9 @@ sudo make install
 
 Download and install parasail.
 ```
-wget https://github.com/jeffdaily/parasail/releases/download/v2.4.2/parasail-2.4.2-manylinux1_x86_64.tar.gz
-tar -xzf parasail-2.4.2-manylinux1_x86_64.tar.gz
-cd parasail-2.4.2-manylinux1_x86_64
+wget https://github.com/jeffdaily/parasail/releases/download/v2.4.3/parasail-2.4.3-manylinux1_x86_64.tar.gz
+tar -xzf parasail-2.4.3-manylinux1_x86_64.tar.gz
+cd parasail-2.4.3-manylinux1_x86_64
 cd lib/
 sudo cp * /usr/local/lib/
 ```
@@ -67,9 +68,9 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
 Non-root installs can be tricky. It basically sums up to making sure all necessary shared libraries can be found by the fade executable.
 Assuming all htslib prerequisites are installed, the installation location can be changed with ```--prefix```.
 ```
-wget https://github.com/samtools/htslib/releases/download/1.9/htslib-1.9.tar.bz2
-tar -xjf htslib-1.9.tar.bz2
-cd htslib-1.9
+wget https://github.com/samtools/htslib/releases/download/1.14/htslib-1.14.tar.bz2
+tar -xjf htslib-1.14.tar.bz2
+cd htslib-1.14
 ./configure
 make 
 make install --prefix ~/libs
@@ -77,14 +78,14 @@ make install --prefix ~/libs
 
 Download and install parasail.
 ```
-wget https://github.com/jeffdaily/parasail/releases/download/v2.4.2/parasail-2.4.2-manylinux1_x86_64.tar.gz
-tar -xzf parasail-2.4.2-manylinux1_x86_64.tar.gz
-cd parasail-2.4.2-manylinux1_x86_64
+wget https://github.com/jeffdaily/parasail/releases/download/v2.4.3/parasail-2.4.3-manylinux1_x86_64.tar.gz
+tar -xzf parasail-2.4.3-manylinux1_x86_64.tar.gz
+cd parasail-2.4.3-manylinux1_x86_64
 cd lib/
 cp * ~/libs/lib
 ```
 
-An easy way of install htslib 1.9 and its dependencies in a non-root capacity is via [miniconda](https://docs.conda.io/en/latest/miniconda.html).
+An easy way of install htslib and its dependencies in a non-root capacity is via [miniconda](https://docs.conda.io/en/latest/miniconda.html).
 
 Install htslib.
 ```
@@ -92,9 +93,9 @@ conda install -c bioconda htslib
 ```
 Download and install parasail into conda env.
 ```
-wget https://github.com/jeffdaily/parasail/releases/download/v2.4.2/parasail-2.4.2-manylinux1_x86_64.tar.gz
-tar -xzf parasail-2.4.2-manylinux1_x86_64.tar.gz
-cd parasail-2.4.2-manylinux1_x86_64
+wget https://github.com/jeffdaily/parasail/releases/download/v2.4.3/parasail-2.4.3-manylinux1_x86_64.tar.gz
+tar -xzf parasail-2.4.3-manylinux1_x86_64.tar.gz
+cd parasail-2.4.3-manylinux1_x86_64
 cd lib/
 cp * ~/minconda3/lib/
 ```
@@ -115,7 +116,7 @@ LIBRARY_PATH=~/miniconda3/lib/ dub build -b release
 
 Go to the [latest release](https://github.com/blachlylab/fade/releases/latest).
 ```
-wget https://github.com/blachlylab/fade/releases/download/v0.2.2/fade
+wget https://github.com/blachlylab/fade/releases/download/v0.5.0/fade
 sudo cp fade /usr/local/bin
 ```
 If you have linker errors with libphobos you may need to install `libphobos2-ldc-shared94`. If this is not availible for your system you may need to build from source. 
@@ -146,9 +147,9 @@ deactivate
 
 
 <details>
-<summary> A note on systems with multiple htslib versions</summary>
+<summary> A note on systems with multiple htslib versions for older versions of FADE</summary>
 
-FADE requires htslib version 1.9, though the latest version is 1.10.2 (as of writing).
+Some older versions of FADE require htslib version 1.9, though the latest version is 1.14 (as of writing).
 Your htslib version may be more up to date than the one our instructions would have you install.
 
 In the case of using a provided binary, this should have no effect. FADE's binary will be able to 
