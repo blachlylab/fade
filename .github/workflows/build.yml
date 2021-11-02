@@ -2,11 +2,11 @@ name: build
 on: [push, pull_request]
 
 jobs:
-  linux-unittests:
-    name: Dub Tests
+  linux-build:
+    name: Dub build
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
         dc: [ldc-latest]
 
     runs-on: ${{ matrix.os }}
