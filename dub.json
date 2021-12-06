@@ -14,6 +14,28 @@
 		{
 			"name":"shared",
 			"targetType": "executable"
+		},
+		{
+			"name":"static-alpine",
+			"targetType": "executable",
+			"dflags-ldc": [
+				"-link-defaultlib-shared=false",
+				"-static",
+				"--linker=gold",
+				"-L-L/lib", 
+				"-L-L/usr/local/lib",
+				"-L-L/usr/local/lib64",
+				"-L-L/usr/lib",
+				"-L-lz",
+				"-L-lbz2",
+				"-L-ldeflate",
+				"-L-llzma",
+				"-L-lcurl", 
+				"-L-lssl", 
+				"-L-lssh2", 
+				"-L-lcrypto", 
+				"-L-lunwind"
+			]
 		}
 	]
 }
