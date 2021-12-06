@@ -13,13 +13,7 @@
 	"configurations":[
 		{
 			"name":"shared",
-			"targetType": "executable",
-			"libs": ["hts","parasail"]
-		},{
-			"name": "bioconda",
-			"targetType": "executable",
-			"dflags": ["-L-L$PREFIX/lib"],
-			"libs": ["hts","parasail"]
+			"targetType": "executable"
 		}
 	]
 }
