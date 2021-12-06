@@ -33,7 +33,7 @@ jobs:
         id: cache-htslib
         uses: actions/cache@v2
         with:
-          path: htslib
+          path: htslib-${{ steps.get-htslib-version.outputs.htslib_version }}
           key: ${{ runner.os}}-htslib-${{ steps.get-htslib-version.outputs.htslib_version }}
 
       - name: Build htslib
