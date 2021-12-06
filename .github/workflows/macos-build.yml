@@ -44,6 +44,12 @@ jobs:
             cd htslib-${{ steps.get-htslib-version.outputs.htslib_version }}
             ./configure
             make
+            
+      - name: Install htslib
+        run: |
+            cd htslib-${{ steps.get-htslib-version.outputs.htslib_version }}
+            sudo make install
+            sudo ldconfig
 
       - name: Install parasail
         run: |
