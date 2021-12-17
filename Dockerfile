@@ -18,7 +18,7 @@ ENV DEFLATE_VER=1.8
 RUN wget https://github.com/ebiggers/libdeflate/archive/refs/tags/v$DEFLATE_VER.tar.gz
 RUN tar -xf v$DEFLATE_VER.tar.gz
 WORKDIR libdeflate-$DEFLATE_VER
-RUN make install -j 8 CFLAGS="-fPIC"
+RUN make install -j 8
 WORKDIR /home/
 RUN rm -r libdeflate-$DEFLATE_VER
 
@@ -60,7 +60,7 @@ ENV HTS_VER=1.14
 RUN wget https://github.com/samtools/htslib/releases/download/$HTS_VER/htslib-$HTS_VER.tar.bz2
 RUN tar xf htslib-$HTS_VER.tar.bz2
 WORKDIR htslib-$HTS_VER
-RUN ./configure --with-libdeflate --enable-libcurl
+RUN ./configure
 RUN make -j 8
 RUN make install
 WORKDIR /home/
