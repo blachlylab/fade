@@ -18,7 +18,7 @@ ENV DEFLATE_VER=1.8
 RUN wget https://github.com/ebiggers/libdeflate/archive/refs/tags/v$DEFLATE_VER.tar.gz
 RUN tar -xf v$DEFLATE_VER.tar.gz
 WORKDIR libdeflate-$DEFLATE_VER
-RUN make install -j 8 CFLAGS="-fPIC -ffreestanding -DFREESTANDING"
+RUN make install -j 8 CFLAGS="-fPIC"
 WORKDIR /home/
 RUN rm -r libdeflate-$DEFLATE_VER
 
