@@ -1,7 +1,7 @@
 FROM alpine
 
 RUN apk add --no-cache \
-    wget autoconf automake make gcc g++ perl git \
+    wget autoconf automake make gcc g++ perl git cmake \
     llvm clang musl musl-dev \
     ldc ldc-static dub \
     zlib zlib-dev zlib-static \
@@ -11,6 +11,19 @@ RUN apk add --no-cache \
     llvm-libunwind-static
 
 WORKDIR /home/
+
+# apparently musl-c allocation is bad with multiple threads
+# suggestion was to use mimalloc
+RUN git clone https://github.com/microsoft/mimalloc.git
+WORKDIR /home/mimalloc
+RUN git checkout v2.0.3
+RUN mkdir build 
+WORKDIR /home/mimalloc/build
+RUN cmake ..
+RUN make -j 8
+RUN make install
+WORKDIR /home/
+RUN rm -r mimalloc
 
 # build libdeflate
 # note we are using the same libdeflate that rust-htslib is using
@@ -29,7 +42,7 @@ RUN tar -xf openssl-$SSL_VER.tar.gz
 WORKDIR openssl-$SSL_VER
 RUN ./Configure --prefix=/usr/local linux-x86_64 no-async no-engine -DOPENSSL_NO_SECURE_MEMORY
 RUN make -j 8
-RUN make install -j 8
+RUN make install_sw -j 8
 WORKDIR /home/
 RUN rm -r openssl-$SSL_VER
 
@@ -60,7 +73,7 @@ ENV HTS_VER=1.14
 RUN wget https://github.com/samtools/htslib/releases/download/$HTS_VER/htslib-$HTS_VER.tar.bz2
 RUN tar xf htslib-$HTS_VER.tar.bz2
 WORKDIR htslib-$HTS_VER
-RUN ./configure
+RUN CFLAGS="-lmimalloc" ./configure
 RUN make -j 8
 RUN make install
 WORKDIR /home/
