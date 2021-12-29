@@ -1,4 +1,11 @@
 *.bed
 *.bam
+*.bam.bai
 *.sam
 source/_version.d
+dub.selections.json
+*.fa
+*.fa.fai
+fade
+fade_debug
+.dub
