@@ -36,7 +36,8 @@
 				"-L-lssh2", 
 				"-L-lcrypto", 
 				"-L-lunwind"
-			]
+			],
+			"sourceFiles": ["/usr/local/lib/mimalloc-2.0/mimalloc.o"]
 		}
 	]
 }

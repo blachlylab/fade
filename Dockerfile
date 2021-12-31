@@ -14,16 +14,16 @@ WORKDIR /home/
 
 # apparently musl-c allocation is bad with multiple threads
 # suggestion was to use mimalloc
-# RUN git clone https://github.com/microsoft/mimalloc.git
-# WORKDIR /home/mimalloc
-# RUN git checkout v2.0.3
-# RUN mkdir build 
-# WORKDIR /home/mimalloc/build
-# RUN cmake ..
-# RUN make -j 8
-# RUN make install
-# WORKDIR /home/
-# RUN rm -r mimalloc
+RUN git clone https://github.com/microsoft/mimalloc.git
+WORKDIR /home/mimalloc
+RUN git checkout v2.0.3
+RUN mkdir build 
+WORKDIR /home/mimalloc/build
+RUN cmake ..
+RUN make -j 8
+RUN make install
+WORKDIR /home/
+RUN rm -r mimalloc
 
 # build libdeflate
 # note we are using the same libdeflate that rust-htslib is using
