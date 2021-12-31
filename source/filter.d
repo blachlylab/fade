@@ -50,7 +50,7 @@ void clipRead(SAMRecord* rec, ReadStatus* status)
 
         while (len_to_clip > 0)
         {
-            if (new_cigar[0].is_query_consuming)
+            if (new_cigar[0].op.isQueryConsuming)
             {
                 if (len_to_clip < new_cigar[0].length)
                 {
@@ -101,7 +101,7 @@ void clipRead(SAMRecord* rec, ReadStatus* status)
 
         while (len_to_clip > 0)
         {
-            if (new_cigar[$ - 1].is_query_consuming)
+            if (new_cigar[$ - 1].op.isQueryConsuming)
             {
                 if (len_to_clip < new_cigar[$ - 1].length)
                 {

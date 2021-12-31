@@ -15,6 +15,7 @@ import util;
 
 void annotate(string cl,string[] args, ubyte con, int artifact_floor_length, int align_buffer_size)
 {
+    hts_set_log_level(htsLogLevel.HTS_LOG_INFO);
     hts_log_warning("fade annotate","Output SAM/BAM will not be sorted (regardless of prior sorting)");
     // open bam read and writer
     // also modify header
