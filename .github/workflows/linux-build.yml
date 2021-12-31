@@ -26,8 +26,7 @@ jobs:
       - name: Get htslib version
         id: get-htslib-version
         run: |
-            grep "+htslib" dub.json | sed -E 's/^.*+htslib-([0-9.]+)"/\1/g' > htslib_version.txt
-            echo "::set-output name=htslib_version::$(cat htslib_version.txt)"
+            echo "::set-output name=htslib_version::1.13"
 
       - name: Cache htslib
         id: cache-htslib
