@@ -6,7 +6,7 @@
 	"description": "A minimal D application.",
 	"license": "MIT",
 	"dependencies": {
-		"dparasail":"~>0.3.0",
+		"dparasail":"~>0.3.3",
 		"dhtslib": {
 			"repository": "git+https://github.com/blachlylab/dhtslib.git",
 			"version": "c51b842166300796944f786b00f60345face9d48"

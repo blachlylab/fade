@@ -20,6 +20,7 @@ void annotate(string cl,string[] args, ubyte con, int artifact_floor_length, int
     // open bam read and writer
     // also modify header
     auto bam = SAMReader(args[1]);
+    auto fai = IndexedFastaFile(args[2]);
     auto header = bam.header.dup;
     header.addLine(
         RecordType.PG, 
@@ -35,22 +36,23 @@ void annotate(string cl,string[] args, ubyte con, int artifact_floor_length, int
     auto p = Parasail("ACTGN", 10, 2, 2, -3);
 
     // need a mutex for non-thread-safe bam writing
-    auto m = new Mutex();
+    auto mwrite = new Mutex();
+    // need a mutex for non-thread-safe fai reading
+    auto mfai = new Mutex();
 
     // process reads in parallel
     foreach(rec; parallel(bam.allRecords))
     {
-        auto newRec = annotateTask(rec, p, args[2], artifact_floor_length, align_buffer_size);
-        m.lock;
+        auto newRec = annotateTask(rec, &p, fai, mfai, artifact_floor_length, align_buffer_size);
+        mwrite.lock;
         out_bam.write(newRec);
-        m.unlock;
+        mwrite.unlock;
     }
 }
 
 /// Performs enz-frag artifact detection/annotation per SAMRecord
-static SAMRecord annotateTask(SAMRecord rec, Parasail p, string faifn, int artifact_floor_length, int align_buffer_size)
-{   
-    auto fai = IndexedFastaFile(faifn);
+static SAMRecord annotateTask(SAMRecord rec, Parasail * p, IndexedFastaFile fai, Mutex mfai, int artifact_floor_length, int align_buffer_size)
+{
     ReadStatus status;
 
     // if read is supp, sec, or not mapped
@@ -76,7 +78,7 @@ static SAMRecord annotateTask(SAMRecord rec, Parasail p, string faifn, int artif
     Align_Result align_1, align_2;
     if (clips[0].length != 0)
     {
-        align_1 = align_clip!true(fai, p, rec, &status,
+        align_1 = align_clip!true(fai, mfai, p, rec, &status,
                 clips[0].length(), artifact_floor_length, align_buffer_size);
     }
 
@@ -84,7 +86,7 @@ static SAMRecord annotateTask(SAMRecord rec, Parasail p, string faifn, int artif
     // perform realignment of rc'd read
     if (clips[1].length() != 0)
     {
-        align_2 = align_clip!false(fai, p, rec, &status,
+        align_2 = align_clip!false(fai, mfai, p, rec, &status,
                 clips[1].length(), artifact_floor_length, align_buffer_size);
     }
     

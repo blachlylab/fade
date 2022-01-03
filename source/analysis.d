@@ -19,7 +19,7 @@ struct Align_Result
 }
 
 /// Align the sofclip to the read region or the mate region
-Align_Result align_clip(bool left)(IndexedFastaFile fai, Parasail p,
+Align_Result align_clip(bool left)(IndexedFastaFile fai, Mutex mfai, Parasail * p,
         SAMRecord rec, ReadStatus * status, uint clip_len,
         int artifact_floor_length, int align_buffer_size)
 {
@@ -58,8 +58,10 @@ Align_Result align_clip(bool left)(IndexedFastaFile fai, Parasail p,
         end = rec.h.targetLength(rec.tid);
     }
 
+    mfai.lock;
     //get read region seq
     ref_seq = fai.fetchSequence(rec.h.targetName(rec.tid).idup, ZBHO(start, end)).toUpper;
+    mfai.unlock;
 
     //align
     auto res = p.sw_striped(q_seq, ref_seq);
