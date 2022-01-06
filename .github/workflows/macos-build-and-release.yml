@@ -71,11 +71,13 @@ jobs:
           path: fade.darwin-amd64.tar.gz
 
   docker-build-and-release:
+    name: release with static linux binary
+    needs: macos-build
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        if: startsWith(github.ref, 'refs/tags/')
 
       - name: Get the tag
         id: get_version
