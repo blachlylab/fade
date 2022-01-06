@@ -61,8 +61,10 @@ jobs:
         env:
           LIBRARY_PATH: /usr/local/lib
       
-      - name: compress binary
-        run: tar -czvf fade.darwin-amd64.tar.gz fade
+      - name: fix binary and compress
+        run: |
+            install_name_tool -change /usr/local/lib/libhts.3.dylib @rpath/libhts.3.dylib fade
+            tar -czvf fade.darwin-amd64.tar.gz fade
       
       - name: upload osx artifact
         uses: actions/upload-artifact@v2
