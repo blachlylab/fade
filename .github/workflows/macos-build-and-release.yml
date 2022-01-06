@@ -107,7 +107,7 @@ jobs:
         id: extract
         with:
           image: blachlylab/fade:latest
-          path: /home/fade/test
+          path: /home/fade/fade
       
       - name: compress binary
         run: tar -czvf fade.many-linux-x86_64.tar.gz ${{ steps.extract.outputs.destination }}/fade
