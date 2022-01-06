@@ -25,11 +25,6 @@
 				"-link-defaultlib-shared=false",
 				"-static",
 				"--linker=gold",
-				"-L-L/lib", 
-				"-L-L/usr/local/lib",
-				"-L-L/usr/local/lib64",
-				"-L-L/usr/lib",
-				"-L-L/usr/local/lib/mimalloc-2.0",
 				"-L-lz",
 				"-L-lbz2",
 				"-L-ldeflate",
@@ -37,8 +32,7 @@
 				"-L-lcurl", 
 				"-L-lssl", 
 				"-L-lssh2", 
-				"-L-lcrypto", 
-				"-L-lunwind"
+				"-L-lcrypto"
 			],
 			"sourceFiles": ["/usr/local/lib/mimalloc-2.0/mimalloc.o"]
 		}
