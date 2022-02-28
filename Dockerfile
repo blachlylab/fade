@@ -1,4 +1,4 @@
-FROM charesgregory/dlang-htslib-static
+FROM blachlylab/dlang-htslib-static
 
 # download parasail
 ENV PARASAIL_VER=2.4.3
@@ -14,6 +14,8 @@ RUN wget https://github.com/jeffdaily/parasail/releases/download/v$PARASAIL_VER/
 ADD . /home/fade
 
 WORKDIR /home/fade
+
+ARG FADE_VER=$(git describe --tags)
 
 RUN dub build --compiler ldc2 -c static-alpine -b release
 

@@ -4,10 +4,13 @@ import std.getopt;
 import std.parallelism : defaultPoolThreads;
 import filter : filter;
 import std.array : join;
+import std.format : format;
 import anno;
 import stats;
 import remap;
 import noclip;
+import _version;
+
 
 int artifact_floor_length = 5;
 int align_buffer_size = 300;
@@ -16,12 +19,16 @@ bool clip = false;
 bool output_bam;
 bool output_ubam;
 
-string full_help = "Fragmentase Artifact Detection and Elimination\n" ~ "usage: ./fade [subcommand]\n"
-    ~ "\tannotate: marks artifact reads in bam tags (must be done first)\n"
-    ~ "\tout: eliminates artifact from reads(may require queryname sorted bam)\n"
-    ~ "\tstats: reports extended information about artifact reads\n"
-    ~ "\tstats-clip: reports extended information about all soft-clipped reads\n"
-    ~ "\textract: extracts artifacts into a mapped bam";
+string full_help = "
+Fragmentase Artifact Detection and Elimination
+version %s
+usage: ./fade [subcommand]
+    annotate: marks artifact reads in bam tags (must be done first)
+    out: eliminates artifact from reads(may require queryname sorted bam)
+    stats: reports extended information about artifact reads
+    stats-clip: reports extended information about all soft-clipped reads
+    extract: extracts artifacts into a mapped bam
+".format(VERSION);
 
 void main(string[] args)
 {
