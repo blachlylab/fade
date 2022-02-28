@@ -7,24 +7,23 @@ import std.algorithm.iteration : splitter;
 import std.conv : to;
 import readstatus;
 import dhtslib;
+import htslib.hts_log;
 import dparasail;
 import std.math : round;
 import std.algorithm : sum;
 import std.utf;
 import util;
 
-void noclipfile(string[] args)
+int noclipfile(SAMReader bam, File outfile)
 {
     import std.array : join, split;
     import std.format : format;
 
-    auto bam = SAMReader(args[1]);
-    auto outfile = File(args[2], "w");
     auto header = [
         "qname", "sc_q_scores", "sc_seq", "sc_avg_bq", "avg_bq", "art_status"
     ];
     outfile.writeln(header.join('\t'));
-    auto ps = Parasail("ACTGN", 3, -8, 10, 5);
+    auto ps = Parasail("ACTGN", 3, 8, 10, -5);
     foreach (SAMRecord rec; bam.allRecords())
     {
         auto tag = rec["rs"];
@@ -70,4 +69,5 @@ void noclipfile(string[] args)
             outfile.writeln(towrite.join("\t"));
         }
     }
+    return 0;
 }

@@ -8,7 +8,7 @@ import std.conv : to;
 import readstatus;
 import util;
 
-void remapArtifacts(string cl, string[] args, ubyte con)
+int remapArtifacts(string cl, string[] args, ubyte con)
 {
     hts_log_warning("fade extract","Output SAM/BAM will not be sorted");
     import std.array : join, split;
@@ -83,4 +83,5 @@ void remapArtifacts(string cl, string[] args, ubyte con)
             out_bam.write(newRec);
         }
     }
+    return 0;
 }

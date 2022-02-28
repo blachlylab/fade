@@ -7,6 +7,7 @@ import std.algorithm.iteration : splitter;
 import std.conv : to;
 import readstatus;
 import dhtslib;
+import htslib.hts_log;
 import dparasail;
 import std.math : round;
 import std.algorithm : sum;
@@ -71,13 +72,11 @@ struct Stats
     }
 }
 
-void statsfile(string[] args)
+int statsfile(SAMReader bam, File outfile)
 {
     import std.array : join, split;
     import std.format : format;
 
-    auto bam = SAMReader(args[1]);
-    auto outfile = File(args[2], "w");
     auto header = [
         "qname", "rname", "pos", "cigar", "art_start", "art_end", "aln_rname",
         "aln_start", "aln_end", "art_cigar", "stemloop", "stemloop_rc",
@@ -85,7 +84,7 @@ void statsfile(string[] args)
         "art_bq", "IR_bq", "flagbinary", "flag", "strand"
     ];
     outfile.writeln(header.join('\t'));
-    auto ps = Parasail("ACTGN", 3, -8, 10, 5);
+    auto ps = Parasail("ACTGN", 3, 8, 10, -5);
     foreach (SAMRecord rec; bam.allRecords())
     {
         auto tag = rec["rs"];
@@ -125,7 +124,7 @@ void statsfile(string[] args)
             towrite ~= towrite[$ - 2][0 .. p.endQuery + 1];
             towrite ~= (p.identity).to!string;
 
-            debug ps.aligner!("sw", "trace", "striped", "16")(towrite[$ - 2][0 .. end],towrite[$ - 1]).writeAlignment;
+            // debug ps.aligner!("sw", "trace", "striped", "16")(towrite[$ - 2][0 .. end],towrite[$ - 1]).writeAlignment;
 
             towrite ~= (float(rec.qscores.sum) / float(rec.length)).to!string;
             auto bq = rec["ab"].toString[0 .. towrite[$ - 4].length].dup;
@@ -166,7 +165,7 @@ void statsfile(string[] args)
             towrite ~= towrite[$ - 2][0 .. p.endQuery + 1];
             towrite ~= (p.identity).to!string;
 
-            debug ps.aligner!("sw", "trace", "striped", "16")(towrite[$ - 2][0 .. end],towrite[$ - 1]).writeAlignment;
+            // debug ps.aligner!("sw", "trace", "striped", "16")(towrite[$ - 2][0 .. end],towrite[$ - 1]).writeAlignment;
 
             towrite ~= (float(rec.qscores().sum) / float(rec.length)).to!string;
             auto bq = rec["ab"].toString[$ - towrite[$ - 4].length .. $].dup;
@@ -183,4 +182,5 @@ void statsfile(string[] args)
             outfile.writeln(towrite.join("\t"));
         }
     }
+    return 0;
 }

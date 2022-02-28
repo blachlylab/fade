@@ -158,7 +158,7 @@ SAMRecord makeArtifactRecord(SAMRecord* original, bool left, bool mate)
     return rec;
 }
 
-void filter(bool clip)(string cl, string[] args, ubyte con)
+int filter(bool clip)(string cl, string[] args, ubyte con)
 {
     auto bam = SAMReader(args[1]);
     auto header = bam.header.dup;
@@ -175,7 +175,7 @@ void filter(bool clip)(string cl, string[] args, ubyte con)
     Stats stats;
     static if (clip == true)
     {
-        hts_log_warning("fade out","Using the -c flag means the output SAM/BAM will not be sorted (regardless of prior sorting)");
+        hts_log_warning("fade-out","Using the -c flag means the output SAM/BAM will not be sorted (regardless of prior sorting)");
         foreach (SAMRecord rec; bam.allRecords())
         {
             stats.read_count++;
@@ -206,7 +206,7 @@ void filter(bool clip)(string cl, string[] args, ubyte con)
         auto origRange = recordRange.save;
         recordRange.popFront;
         if(origRange.front.queryName == recordRange.front.queryName){
-            hts_log_warning("fade out","Output looks name-sorted, ejecting all reads with same readname if any have an artifact");
+            hts_log_warning("fade-out","Output looks name-sorted, ejecting all reads with same readname if any have an artifact");
             foreach (recs; bam.allRecords.chunkBy!((a, b) => a.queryName == b.queryName))
             {
                 auto originalGroup = recs.save;
@@ -236,7 +236,7 @@ void filter(bool clip)(string cl, string[] args, ubyte con)
                 }
             }
         }else{
-            hts_log_warning("fade out","Output doesn't look name-sorted, ejecting by only reads with an artifact");
+            hts_log_warning("fade-out","Output doesn't look name-sorted, ejecting by only reads with an artifact");
             foreach (rec; origRange)
             {
                 stats.read_count++;
@@ -256,4 +256,5 @@ void filter(bool clip)(string cl, string[] args, ubyte con)
         }
     }
     stats.print;
+    return 0;
 }
