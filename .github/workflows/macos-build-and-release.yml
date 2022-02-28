@@ -117,6 +117,8 @@ jobs:
         run: | 
             cd ${{ steps.extract.outputs.destination }}/
             tar -czvf fade.many-linux-x86_64.tar.gz fade
+            cd -
+            mv ${{ steps.extract.outputs.destination }}/fade.many-linux-x86_64.tar.gz .
 
       - name: Download osx binary
         uses: actions/download-artifact@v2
