@@ -1,9 +1,10 @@
-name: macos ldc build
+name: make release
 on: [push, pull_request]
 
 jobs:
   macos-build:
     name: macos ldc build
+    if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
     strategy:
       matrix:
         os: [macos-latest]
@@ -112,7 +113,9 @@ jobs:
           path: /home/fade/fade
       
       - name: compress binary
-        run: tar -czvf fade.many-linux-x86_64.tar.gz ${{ steps.extract.outputs.destination }}/fade
+        run: | 
+            cd ${{ steps.extract.outputs.destination }}/
+            tar -czvf fade.many-linux-x86_64.tar.gz fade
 
       - name: Download osx binary
         uses: actions/download-artifact@v2
