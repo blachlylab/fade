@@ -3,6 +3,11 @@ import dhtslib;
 import htslib.hts : seq_nt16_str;
 import htslib.sam : bam_hdr_t;
 import std.stdio;
+import std.range;
+import std.functional : binaryFun, unaryFun;
+import std.traits : isArray;
+import std.array : Appender, appender;
+
 public import _version;
 
 // string rc(Range)(Range seq){
@@ -67,5 +72,48 @@ SAMWriter getWriter(ubyte con, SAMHeader hdr)
         return SAMWriter(stdout, hdr, SAMWriterTypes.UBAM);
     case 2:
         return SAMWriter(stdout, hdr, SAMWriterTypes.BAM);
+    }
+}
+
+
+// https://forum.dlang.org/post/rl097f$ooh$1@digitalmars.com
+template chunkBy(alias pred)
+if(is(typeof(binaryFun!pred)))
+{
+    alias fun = binaryFun!pred;
+    auto chunkBy(R)(R range){
+        struct ChunkBy(R)
+        {
+            R remaining;
+            Appender!((ElementType!R)[]) recs;
+            size_t nextIdx;
+            this(R range)
+            {
+                this.remaining = range;
+                this.recs = appender!((ElementType!R)[]);
+                this.popFront;
+            }
+            auto front() { return recs.data; }
+            void popFront() {
+                if(remaining.empty){
+                    this.empty = true;
+                    return;
+                }
+                foreach(ref rec; recs.data)
+                {
+                    destroy(rec);
+                }
+                recs.clear;
+				recs ~= remaining.front;
+                remaining.popFront;
+                while(!remaining.empty && fun(remaining.front, recs.data[$-1]))
+                {
+					recs ~= remaining.front;
+                    remaining.popFront;
+                }
+            }
+            bool empty = false;
+        }
+        return ChunkBy!R(range);
     }
 }

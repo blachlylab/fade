@@ -201,7 +201,7 @@ int filter(bool clip)(string cl, string[] args, ubyte con)
     }
     static if (clip == false)
     {
-        import std.algorithm.iteration : chunkBy;
+        import util : chunkBy;
         auto recordRange = bam.allRecords;
         auto origRange = recordRange.save;
         recordRange.popFront;
@@ -209,9 +209,9 @@ int filter(bool clip)(string cl, string[] args, ubyte con)
             hts_log_warning("fade-out","Output looks name-sorted, ejecting all reads with same readname if any have an artifact");
             foreach (recs; bam.allRecords.chunkBy!((a, b) => a.queryName == b.queryName))
             {
-                auto originalGroup = recs.save;
+                auto group = recs.array;
                 bool art_found = false;
-                foreach (rec; recs)
+                foreach (rec; group)
                 {
                     stats.read_count++;
                     ReadStatus val;
@@ -229,7 +229,7 @@ int filter(bool clip)(string cl, string[] args, ubyte con)
                 }
                 if (!art_found)
                 {
-                    foreach (rec; originalGroup)
+                    foreach (rec; group)
                     {
                         out_bam.write(rec);
                     }
