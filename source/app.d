@@ -166,16 +166,16 @@ int main(string[] args)
         }
 
         File outfile;
-        if(args.length == 3)
-            outfile = File(args[2], "w");
-        else if(args.length == 2)
+        if(args.length == 4)
+            outfile = File(args[3], "w");
+        else if(args.length == 3)
             outfile = stdout;
         else{
             defaultGetoptPrinter(stats_help,res.options);
             return 1;
         }
 
-        auto bam = SAMReader(args[1]);
+        auto bam = SAMReader(args[2]);
 
         return statsfile(bam, outfile);
     }
@@ -192,17 +192,18 @@ int main(string[] args)
         {
             defaultPoolThreads(threads);
         }
+
         File outfile;
-        if(args.length == 3)
-            outfile = File(args[2], "w");
-        else if(args.length == 2)
+        if(args.length == 4)
+            outfile = File(args[3], "w");
+        else if(args.length == 3)
             outfile = stdout;
         else{
-            defaultGetoptPrinter(stats_clip_help,res.options);
+            defaultGetoptPrinter(stats_help,res.options);
             return 1;
         }
 
-        auto bam = SAMReader(args[1]);
+        auto bam = SAMReader(args[2]);
 
         return noclipfile(bam, outfile);
     }
