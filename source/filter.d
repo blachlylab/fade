@@ -1,8 +1,9 @@
 module filter;
 import std.array : array;
-import std.algorithm.iteration : splitter;
-import std.range : drop, retro;
-import std.conv : to;
+import std.algorithm: splitter, isSorted, sort, map;
+import std.range : drop, retro, take;
+import std.conv : to, parse, ConvException;
+import std.typecons : Flag, Yes, No;
 import std.stdio;
 import dhtslib;
 import htslib.sam;
@@ -158,6 +159,46 @@ SAMRecord makeArtifactRecord(SAMRecord* original, bool left, bool mate)
     return rec;
 }
 
+int numericallyAwareStringComparison(string a, string b)
+{
+    while(a.length > 0 && b.length > 0)
+    {
+        if((a[0] > '9' || a[0] < '0') && (b[0] > '9' || b[0] < '0')) {
+            if(a[0] == b[0]) {
+                a = a[1..$];
+                b = b[1..$];
+                continue;
+            }else if(a[0] < b[0])
+                return -1;
+            else return 1;
+        } else {
+            long a_int = -1;
+            long b_int = -1;
+            try {
+                a_int = parse!long(a);
+            } catch(ConvException)
+            {
+
+            }
+
+            try {
+                b_int = parse!long(b);
+            } catch (ConvException) {
+                
+            }
+            if(a_int == b_int) {
+                continue;
+            }else if(a_int < b_int) return -1;
+            else return 1;
+        }
+    }
+    if(a.length == b.length){
+        return 0;
+    } else if(a.length < b.length) {
+        return -1;
+    } else return 1;
+} 
+
 int filter(bool clip)(string cl, string[] args, ubyte con)
 {
     auto bam = SAMReader(args[1]);
@@ -204,8 +245,10 @@ int filter(bool clip)(string cl, string[] args, ubyte con)
         import util : chunkBy;
         auto recordRange = bam.allRecords;
         auto origRange = recordRange.save;
-        recordRange.popFront;
-        if(origRange.front.queryName == recordRange.front.queryName){
+        
+        alias sort_pred = (a,b) => a.queryName.idup.numericallyAwareStringComparison(b.queryName.idup) < 0;
+        
+        if(recordRange.take(10).isSorted!sort_pred){
             hts_log_warning("fade-out","Output looks name-sorted, ejecting all reads with same readname if any have an artifact");
             foreach (recs; bam.allRecords.chunkBy!((a, b) => a.queryName == b.queryName))
             {
