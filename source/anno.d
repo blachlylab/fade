@@ -58,8 +58,7 @@ static SAMRecord annotateTask(SAMRecord rec, Parasail * p, IndexedFastaFile fai,
 
     // if read is supp, sec, or not mapped
     // set status and write out
-    if (rec.isSupplementary() || rec.isSecondary() || !rec.isMapped()
-            || rec.cigar[].filter!(x => x.op == Ops.SOFT_CLIP).count() == 0)
+    if (!rec.isMapped() || rec.cigar[].filter!(x => x.op == Ops.SOFT_CLIP).count() == 0)
     {
         rec["rs"] = status.raw;
         return rec;
