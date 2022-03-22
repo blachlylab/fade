@@ -15,61 +15,42 @@ import util;
 void clipRead(SAMRecord* rec, ReadStatus* status)
 {
     auto new_cigar = rec.cigar.dup;
-    auto qual = rec.qscores();
+    auto pos = rec.pos;
+    auto seq = rec.sequence().idup;
+    auto qscores = rec.qscores().dup;
+    auto name = rec.queryName.idup;
     if (status.art_left)
     {
-        //get artifact cigar
-        // writeln((*rec)["am"].toString.splitter(";").front.splitter(",").drop(2).front);
         auto art_cigar = cigarFromString((*rec)["am"].toString.splitter(";")
                 .front.splitter(",").drop(2).front);
 
-        //assert left side is soft-clipped 
-        if (art_cigar[0].op != Ops.SOFT_CLIP)
-        {
-            writeln((*rec)["am"]);
-            debug assert(false);
-        else return;
-        }
-        if (art_cigar.alignedLength > rec.length)
-        {
-            writeln((*rec)["am"]);
-            debug assert(false);
-        else return;
-        }
-
-        if (new_cigar[0].op == Ops.HARD_CLIP)
-            new_cigar = new_cigar[1 .. $];
-        assert(new_cigar[0].op == Ops.SOFT_CLIP);
-
-        rec.b.core.pos += art_cigar.alignedLength - new_cigar[0].length;
-
-        //trim sequence
-        rec.sequence = rec.sequence[art_cigar.alignedLength .. $];
-        rec.qscores(qual[art_cigar.alignedLength .. $].dup);
-
-        auto len_to_clip = art_cigar.alignedLength;
-
-        while (len_to_clip > 0)
-        {
-            if (new_cigar[0].op.isQueryConsuming)
-            {
-                if (len_to_clip < new_cigar[0].length)
-                {
-                    new_cigar[0].length = new_cigar[0].length - len_to_clip;
-                    len_to_clip = 0;
+        auto to_trim = art_cigar.alignedLength;
+        auto hard_clip = CigarOp(0, Ops.HARD_CLIP);
+        if(to_trim < rec.cigar.alignedLength){
+            while(to_trim) {
+                if(new_cigar[0].op.isQueryConsuming()){
+                    seq = seq[1..$];
+                    qscores = qscores[1..$];
+                    hard_clip.length = hard_clip.length + 1;
                 }
-                else
-                {
-                    len_to_clip -= new_cigar[0].length;
-                    new_cigar = new_cigar[1 .. $];
+                if(new_cigar[0].op.isReferenceConsuming()){
+                    pos++;
+                    to_trim--;
                 }
-            }
-            else
-            {
-                new_cigar = new_cigar[1 .. $];
-            }
+                new_cigar[0].length = new_cigar[0].length -1;
+                if(!new_cigar[0].length) {
+                    new_cigar = new_cigar[1..$];
+                }
+                
+            } 
+        } else {
+            *rec = SAMRecord(rec.h);
+            rec.queryName = name;
+            rec.sequence = seq;
+            rec.qscores = qscores;
+            return;
         }
-        new_cigar = CigarOp(art_cigar.alignedLength, Ops.HARD_CLIP) ~ new_cigar[];
+        new_cigar = Cigar([hard_clip] ~ new_cigar[]);
     }
     if (status.art_right)
     {
@@ -77,52 +58,36 @@ void clipRead(SAMRecord* rec, ReadStatus* status)
         auto art_cigar = cigarFromString((*rec)["am"].toString.splitter(";")
                 .drop(1).front.splitter(",").drop(2).front);
 
-        //assert right side is soft-clipped 
-        if (art_cigar[$ - 1].op != Ops.SOFT_CLIP)
-        {
-            writeln((*rec)["am"]);
-            debug assert(false);
-        else return;
-        }
-        if (art_cigar.alignedLength > rec.length)
-        {
-            writeln((*rec)["am"]);
-            debug assert(false);
-        else return;
-        }
-
-        //trim sequence
-        rec.sequence = rec.sequence[0 .. $ - art_cigar.alignedLength];
-        rec.qscores(qual[0 .. $ - art_cigar.alignedLength].dup);
-
-        if (new_cigar[$ - 1].op == Ops.HARD_CLIP)
-            new_cigar = new_cigar[0 .. $ - 1];
-        assert(new_cigar[$ - 1].op == Ops.SOFT_CLIP);
-        auto len_to_clip = art_cigar.alignedLength;
-
-        while (len_to_clip > 0)
-        {
-            if (new_cigar[$ - 1].op.isQueryConsuming)
-            {
-                if (len_to_clip < new_cigar[$ - 1].length)
-                {
-                    new_cigar[$ - 1].length = new_cigar[$ - 1].length - len_to_clip;
-                    len_to_clip = 0;
+        auto to_trim = art_cigar.alignedLength;
+        auto hard_clip = CigarOp(0, Ops.HARD_CLIP);
+        if(to_trim < new_cigar.alignedLength){
+            while(to_trim) {
+                if(new_cigar[$-1].op.isQueryConsuming()){
+                    seq = seq[0..$-1];
+                    qscores = qscores[0..$-1];
+                    hard_clip.length = hard_clip.length + 1;
                 }
-                else
-                {
-                    len_to_clip -= new_cigar[$ - 1].length;
-                    new_cigar = new_cigar[0 .. $ - 1];
+                if(new_cigar[$-1].op.isReferenceConsuming()){
+                    to_trim--;
                 }
-            }
-            else
-            {
-                new_cigar = new_cigar[0 .. $ - 1];
-            }
+                new_cigar[$-1].length = new_cigar[$-1].length -1;
+                if(!new_cigar[$-1].length) {
+                    new_cigar = new_cigar[0..$-1];
+                }
+            } 
+        } else {
+            *rec = SAMRecord(rec.h);
+            rec.queryName = name;
+            rec.sequence = seq;
+            rec.qscores = qscores;
+            return;
         }
-        new_cigar = new_cigar[] ~ CigarOp(art_cigar.alignedLength, Ops.HARD_CLIP);
+        new_cigar = Cigar(new_cigar[] ~ [hard_clip]);
     }
     rec.cigar = new_cigar;
+    rec.sequence = seq;
+    rec.qscores = qscores;
+    rec.pos = pos;
 }
 
 SAMRecord makeArtifactRecord(SAMRecord* original, bool left, bool mate)
@@ -217,6 +182,7 @@ int filter(bool clip)(string cl, string[] args, ubyte con)
     static if (clip == true)
     {
         hts_log_warning("fade-out","Using the -c flag means the output SAM/BAM will not be sorted (regardless of prior sorting)");
+        hts_log_warning("fade-out","You also may need to fix mate information with a tool like Picard FixMateInformation");
         foreach (SAMRecord rec; bam.allRecords())
         {
             stats.read_count++;
