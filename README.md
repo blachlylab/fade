@@ -5,6 +5,7 @@
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/fade/badges/platforms.svg)](https://anaconda.org/bioconda/fade)
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/fade/badges/license.svg)](https://anaconda.org/bioconda/fade)
 [![Anaconda-Server Badge](https://anaconda.org/bioconda/fade/badges/installer/conda.svg)](https://conda.anaconda.org/bioconda)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/fade/badges/downloads.svg)](https://anaconda.org/bioconda/fade)
 
 DNA shearing is a crucial first step in most NGS protocols for Illumina. Enzymatic fragmentation has 
 shown in recent years to be a cost and time effective alternative to physical shearing (i.e. sonication).
