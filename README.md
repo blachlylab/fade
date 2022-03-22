@@ -1,6 +1,10 @@
 ![alt text](https://github.com/blachlylab/fade/raw/master/logo/fade_logo.png "FADE")
-
 # **F**ragmentase **A**rtifact **D**etection and **E**limination
+
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/fade/badges/version.svg)](https://anaconda.org/bioconda/fade)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/fade/badges/platforms.svg)](https://anaconda.org/bioconda/fade)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/fade/badges/license.svg)](https://anaconda.org/bioconda/fade)
+[![Anaconda-Server Badge](https://anaconda.org/bioconda/fade/badges/installer/conda.svg)](https://conda.anaconda.org/bioconda)
 
 DNA shearing is a crucial first step in most NGS protocols for Illumina. Enzymatic fragmentation has 
 shown in recent years to be a cost and time effective alternative to physical shearing (i.e. sonication).
@@ -39,7 +43,8 @@ docker run -v C:\path\to\folder:/data blachlylab/fade out -b -c /data/sam1.anno.
 **Note**: ```fade annotate``` works in parallel. Due to this, fade doesn't necessarily write the output in the same 
 order as the input. Your sorting will be affected. You will likely need to re-sort using ```samtools sort``` if 
 you would like to use IGV or ```samtools index```. ```fade out``` when the ```-c``` flag is used will also 
-affect sorting as it can modify the starting position of an alignment.
+affect sorting and mate information as it can modify the starting position of an alignment. If using ```fade out -c```
+you should consider also running a tool like Picard's [FixMateInformation](https://broadinstitute.github.io/picard/command-line-overview.html#FixMateInformation) after re-sorting.
 
 ## Program Details
 
